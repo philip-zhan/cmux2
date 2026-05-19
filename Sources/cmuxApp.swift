@@ -5073,6 +5073,8 @@ struct SettingsView: View {
     private var commandPaletteRenameSelectAllOnFocus = CommandPaletteRenameSelectionSettings.defaultSelectAllOnFocus
     @AppStorage(CommandPaletteSwitcherSearchSettings.searchAllSurfacesKey)
     private var commandPaletteSearchAllSurfaces = CommandPaletteSwitcherSearchSettings.defaultSearchAllSurfaces
+    @AppStorage(CommandPaletteFileSearchSettings.modeKey)
+    private var commandPaletteFileSearchModeRaw = CommandPaletteFileSearchSettings.defaultMode.rawValue
     @AppStorage(WorkspacePlacementSettings.placementKey) private var newWorkspacePlacement = WorkspacePlacementSettings.defaultPlacement.rawValue
     @AppStorage(WorkspaceWorkingDirectoryInheritanceSettings.key)
     private var workspaceInheritWorkingDirectory = WorkspaceWorkingDirectoryInheritanceSettings.defaultValue
@@ -6274,6 +6276,31 @@ struct SettingsView: View {
                                 .accessibilityIdentifier("CommandPaletteSearchAllSurfacesToggle")
                                 .accessibilityLabel(
                                     String(localized: "settings.app.commandPaletteSearchAllSurfaces", defaultValue: "Command Palette Searches All Surfaces")
+                                )
+                        }
+
+                        SettingsCardDivider()
+
+                        SettingsCardRow(
+                            configurationReview: .json("app.commandPaletteFileSearchMode"),
+                            String(localized: "settings.app.commandPaletteFileSearchVSCodeParity", defaultValue: "Command Palette ⌘P Searches Files (VS Code Style)"),
+                            subtitle: commandPaletteFileSearchModeRaw == CommandPaletteFileSearchMode.switcherPrefixed.rawValue
+                                ? String(localized: "settings.app.commandPaletteFileSearchVSCodeParity.subtitleOn", defaultValue: "Bare Cmd+P searches files; @ switches to workspaces and surfaces. Requires fd on PATH.")
+                                : String(localized: "settings.app.commandPaletteFileSearchVSCodeParity.subtitleOff", defaultValue: "Bare Cmd+P searches workspaces; @ switches to files. Requires fd on PATH.")
+                        ) {
+                            Toggle("", isOn: Binding(
+                                get: {
+                                    commandPaletteFileSearchModeRaw == CommandPaletteFileSearchMode.switcherPrefixed.rawValue
+                                },
+                                set: { isOn in
+                                    commandPaletteFileSearchModeRaw = (isOn ? CommandPaletteFileSearchMode.switcherPrefixed : .filesPrefixed).rawValue
+                                }
+                            ))
+                                .labelsHidden()
+                                .controlSize(.small)
+                                .accessibilityIdentifier("CommandPaletteFileSearchVSCodeParityToggle")
+                                .accessibilityLabel(
+                                    String(localized: "settings.app.commandPaletteFileSearchVSCodeParity", defaultValue: "Command Palette ⌘P Searches Files (VS Code Style)")
                                 )
                         }
 

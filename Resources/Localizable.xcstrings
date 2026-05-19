@@ -54042,6 +54042,57 @@
         }
       }
     },
+    "settings.app.commandPaletteFileSearchVSCodeParity": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command Palette ⌘P Searches Files (VS Code Style)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コマンドパレット ⌘P でファイルを検索（VS Code スタイル）"
+          }
+        }
+      }
+    },
+    "settings.app.commandPaletteFileSearchVSCodeParity.subtitleOff": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bare Cmd+P searches workspaces; @ switches to files. Requires fd on PATH."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そのまま ⌘P でワークスペース検索、@ でファイル検索に切り替えます。PATH に fd が必要です。"
+          }
+        }
+      }
+    },
+    "settings.app.commandPaletteFileSearchVSCodeParity.subtitleOn": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bare Cmd+P searches files; @ switches to workspaces and surfaces. Requires fd on PATH."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そのまま ⌘P でファイル検索、@ でワークスペースとサーフェスに切り替えます。PATH に fd が必要です。"
+          }
+        }
+      }
+    },
     "settings.app.commandPaletteSearchAllSurfaces": {
       "extractionState": "manual",
       "localizations": {
