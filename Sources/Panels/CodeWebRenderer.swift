@@ -23,6 +23,7 @@ struct CodeWebRenderer: NSViewRepresentable {
     let onRequestPanelFocus: () -> Void
     let onSaveRequested: () -> Void
     let onContentChanged: (String) -> Void
+    let onFontSizeChanged: (Int) -> Void
 
     func makeCoordinator() -> Coordinator {
         session.coordinator(panelId: panelId, workspaceId: workspaceId, filePath: filePath)
@@ -79,11 +80,21 @@ struct CodeWebRenderer: NSViewRepresentable {
     }
 
     private func attachCallbacks(_ webView: WKWebView, coordinator: Coordinator) {
-        (webView as? CodeWebView)?.onPointerDown = onRequestPanelFocus
+        if let typed = webView as? CodeWebView {
+            typed.onPointerDown = onRequestPanelFocus
+            typed.onFontSizeChanged = { [weak coordinator] size in
+                coordinator?.applyFontSize(Int(size.rounded()))
+            }
+            typed.onSaveChord = onSaveRequested
+            if typed.currentFontSize != CGFloat(fontSize) {
+                typed.setFontSize(CGFloat(fontSize))
+            }
+        }
         webView.navigationDelegate = coordinator
         webView.uiDelegate = coordinator
         coordinator.onSaveRequested = onSaveRequested
         coordinator.onContentChanged = onContentChanged
+        coordinator.onFontSizeChanged = onFontSizeChanged
     }
 
     private func applyAppearance(to webView: WKWebView, isDark: Bool) {
@@ -131,6 +142,7 @@ struct CodeWebRenderer: NSViewRepresentable {
 
         var onSaveRequested: () -> Void = {}
         var onContentChanged: (String) -> Void = { _ in }
+        var onFontSizeChanged: (Int) -> Void = { _ in }
 
         private var isLoaded = false
         private var isShellLoading = false
@@ -197,6 +209,16 @@ struct CodeWebRenderer: NSViewRepresentable {
             } catch {
                 return nil
             }
+        }
+
+        func applyFontSize(_ size: Int) {
+            guard let webView, isLoaded else {
+                onFontSizeChanged(size)
+                return
+            }
+            let js = "window.__cmuxCodeSetFontSize && window.__cmuxCodeSetFontSize(\(size));"
+            webView.evaluateJavaScript(js, completionHandler: nil)
+            onFontSizeChanged(size)
         }
 
         private func apply(payload: CodeWebRendererPayload) {

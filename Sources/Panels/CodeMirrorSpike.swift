@@ -92,7 +92,6 @@ private struct CodeMirrorSpikeDebugView: View {
 
                 Spacer()
 
-                Toggle("Dark", isOn: $model.isDark)
                 Toggle("Read-only", isOn: $model.isReadOnly)
                 Toggle("Diff", isOn: $model.diffEnabled)
 
@@ -116,6 +115,11 @@ private struct CodeMirrorSpikeDebugView: View {
                 Text("Last save signal: \(model.lastSaveSignal)")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                if !model.diffStatus.isEmpty {
+                    Text(model.diffStatus)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             .padding(.horizontal, 8)
             .padding(.bottom, 6)
@@ -128,8 +132,8 @@ private struct CodeMirrorSpikeDebugView: View {
                 theme: model.theme,
                 fontSize: Int(model.fontSize),
                 isReadOnly: model.isReadOnly,
-                diffOriginal: model.diffEnabled ? CodeMirrorSpikeSample.swift : nil,
-                diffModified: model.diffEnabled ? CodeMirrorSpikeSample.swiftModified : nil,
+                diffOriginal: model.diffEnabled ? (model.diffOriginal ?? CodeMirrorSpikeSample.swift) : nil,
+                diffModified: model.diffEnabled ? (model.diffModified ?? CodeMirrorSpikeSample.swiftModified) : nil,
                 backgroundColor: model.backgroundColor,
                 panelId: model.panelId,
                 workspaceId: model.workspaceId,
@@ -137,10 +141,11 @@ private struct CodeMirrorSpikeDebugView: View {
                 session: session,
                 onRequestPanelFocus: {},
                 onSaveRequested: { model.lastSaveSignal = ISO8601DateFormatter().string(from: Date()) },
-                onContentChanged: { content in model.isDirty = content != model.onDiskContent }
+                onContentChanged: { content in model.isDirty = content != model.onDiskContent },
+                onFontSizeChanged: { size in model.fontSize = Double(size) }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(model.isDark ? Color(white: 0.12) : Color.white)
+            .background(Color(nsColor: model.backgroundColor))
         }
     }
 
@@ -163,12 +168,14 @@ private final class CodeMirrorSpikeModel: ObservableObject {
     @Published var content: String = CodeMirrorSpikeSample.swift
     @Published var languageId: String = "swift"
     @Published var filePath: String = ""
-    @Published var isDark: Bool = true
     @Published var isReadOnly: Bool = false
-    @Published var diffEnabled: Bool = false
+    @Published var diffEnabled: Bool = false { didSet { reloadDiffIfNeeded() } }
     @Published var fontSize: Double = 13
     @Published var isDirty: Bool = false
     @Published var lastSaveSignal: String = "—"
+    @Published var diffOriginal: String? = nil
+    @Published var diffModified: String? = nil
+    @Published var diffStatus: String = ""
 
     let panelId = UUID()
     let workspaceId = UUID()
@@ -180,12 +187,15 @@ private final class CodeMirrorSpikeModel: ObservableObject {
     }
 
     var backgroundColor: NSColor {
-        isDark ? NSColor(red: 0.117, green: 0.125, blue: 0.137, alpha: 1) : .white
+        GhosttyBackgroundTheme.currentColor()
+    }
+
+    var foregroundColor: NSColor {
+        GhosttyApp.shared.defaultForegroundColor
     }
 
     var theme: CodeWebTheme {
-        let fg: NSColor = isDark ? .white : .black
-        return CodeWebTheme.resolve(backgroundColor: backgroundColor, foregroundColor: fg)
+        CodeWebTheme.resolve(backgroundColor: backgroundColor, foregroundColor: foregroundColor)
     }
 
     func loadFile(at url: URL) {
@@ -199,6 +209,32 @@ private final class CodeMirrorSpikeModel: ObservableObject {
         onDiskContent = body
         isDirty = false
         diffEnabled = false
+        diffOriginal = nil
+        diffModified = nil
+        diffStatus = ""
+    }
+
+    private func reloadDiffIfNeeded() {
+        guard diffEnabled, !filePath.isEmpty else {
+            diffOriginal = nil
+            diffModified = nil
+            diffStatus = diffEnabled ? "Open a file first to view its diff against HEAD" : ""
+            return
+        }
+        diffStatus = "Loading diff against HEAD…"
+        let path = filePath
+        Task { @MainActor in
+            if let diff = await CodeViewerGitDiffSource.load(filePath: path) {
+                diffOriginal = diff.original
+                diffModified = diff.modified
+                diffStatus = diff.original == diff.modified ? "No changes vs HEAD" : "Diff vs HEAD"
+            } else {
+                diffOriginal = nil
+                diffModified = nil
+                diffStatus = "Not tracked by git (or git unavailable)"
+                diffEnabled = false
+            }
+        }
     }
 }
 #endif

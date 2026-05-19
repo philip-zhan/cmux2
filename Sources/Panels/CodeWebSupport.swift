@@ -19,7 +19,16 @@ final class WeakCodeWebScriptMessageHandler: NSObject, WKScriptMessageHandler {
 
 @MainActor
 final class CodeWebView: WKWebView {
+    static let defaultFontSize: CGFloat = 13
+    static let minimumFontSize: CGFloat = 8
+    static let maximumFontSize: CGFloat = 36
+
     var onPointerDown: (() -> Void)?
+    var onFontSizeChanged: ((CGFloat) -> Void)?
+    var onSaveChord: (() -> Void)?
+
+    private(set) var currentFontSize: CGFloat = CodeWebView.defaultFontSize
+    private var pendingSaveShortcutChordPrefix: ShortcutStroke?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         PaneFirstClickFocusSettings.isEnabled()
@@ -28,6 +37,69 @@ final class CodeWebView: WKWebView {
     override func mouseDown(with event: NSEvent) {
         onPointerDown?()
         super.mouseDown(with: event)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.type == .keyDown else {
+            return super.performKeyEquivalent(with: event)
+        }
+        if let shouldSave = saveShortcutMatch(for: event) {
+            if shouldSave { onSaveChord?() }
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    private func saveShortcutMatch(for event: NSEvent) -> Bool? {
+        let shortcut = KeyboardShortcutSettings.shortcut(for: .saveFilePreview)
+        guard shortcut.hasChord else {
+            pendingSaveShortcutChordPrefix = nil
+            return shortcut.matches(event: event) ? true : nil
+        }
+        if let pendingPrefix = pendingSaveShortcutChordPrefix {
+            pendingSaveShortcutChordPrefix = nil
+            guard pendingPrefix == shortcut.firstStroke,
+                  let secondStroke = shortcut.secondStroke else { return nil }
+            return secondStroke.matches(event: event) ? true : nil
+        }
+        if shortcut.firstStroke.matches(event: event) {
+            pendingSaveShortcutChordPrefix = shortcut.firstStroke
+            return false
+        }
+        return nil
+    }
+
+    override func magnify(with event: NSEvent) {
+        let factor = 1.0 + event.magnification
+        guard factor.isFinite, factor > 0 else { return }
+        adjustFontSize(by: factor)
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        guard FilePreviewInteraction.hasZoomModifier(event) else {
+            super.scrollWheel(with: event)
+            return
+        }
+        adjustFontSize(by: FilePreviewInteraction.zoomFactor(forScroll: event))
+    }
+
+    override func smartMagnify(with event: NSEvent) {
+        if currentFontSize == Self.defaultFontSize {
+            setFontSize(18)
+        } else {
+            setFontSize(Self.defaultFontSize)
+        }
+    }
+
+    func setFontSize(_ size: CGFloat) {
+        let clamped = min(max(size, Self.minimumFontSize), Self.maximumFontSize)
+        guard clamped.isFinite, clamped != currentFontSize else { return }
+        currentFontSize = clamped
+        onFontSizeChanged?(clamped)
+    }
+
+    private func adjustFontSize(by factor: CGFloat) {
+        setFontSize(currentFontSize * factor)
     }
 }
 

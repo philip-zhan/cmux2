@@ -147,19 +147,6 @@ const contentChangeListener = EditorView.updateListener.of((u) => {
   if (u.docChanged) scheduleContentChange(u.view);
 });
 
-function saveKeymap() {
-  return keymap.of([
-    {
-      key: "Mod-s",
-      preventDefault: true,
-      run: () => {
-        postToSwift("requestSave");
-        return true;
-      },
-    },
-  ]);
-}
-
 function baseExtensions(): Extension[] {
   return [
     lineNumbers(),
@@ -169,7 +156,10 @@ function baseExtensions(): Extension[] {
     EditorState.allowMultipleSelections.of(true),
     history(),
     search({ top: true }),
-    saveKeymap(),
+    // Save chord is intercepted on the Swift side so it can honor the user's
+    // KeyboardShortcutSettings.saveFilePreview binding (which may be a chord
+    // like ⌘K ⌘S). The bridge still exposes a `requestSave` action for any
+    // future JS-triggered save flows (e.g. an in-editor "Save" button).
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     fontSizeCompartment.of(EditorView.theme({ "&": { fontSize: "13px" } })),
     themeCompartment.of([]),
@@ -284,6 +274,7 @@ declare global {
   interface Window {
     __cmuxCodeApply?: (payload: Payload | string) => void;
     __cmuxCodeGet?: () => string;
+    __cmuxCodeSetFontSize?: (px: number) => void;
   }
 }
 
@@ -305,6 +296,10 @@ window.__cmuxCodeGet = function () {
   if (editor) return editor.state.doc.toString();
   if (mergeView) return mergeView.b.state.doc.toString();
   return "";
+};
+
+window.__cmuxCodeSetFontSize = function (px) {
+  applyFontSize(px);
 };
 
 document.documentElement.dataset.cmuxCodeViewerReady = "1";
