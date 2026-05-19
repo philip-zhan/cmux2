@@ -31343,6 +31343,74 @@
         }
       }
     },
+    "commandPalette.files.fdMissing.body": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install with: brew install fd"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インストール: brew install fd"
+          }
+        }
+      }
+    },
+    "commandPalette.files.fdMissing.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fd is required for file search"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイル検索には fd が必要です"
+          }
+        }
+      }
+    },
+    "commandPalette.search.filesEmpty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start typing to search files in this workspace."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このワークスペース内のファイルを検索するには入力してください。"
+          }
+        }
+      }
+    },
+    "commandPalette.search.filesPlaceholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search files by name"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイル名で検索"
+          }
+        }
+      }
+    },
     "commandPalette.search.switcherEmpty": {
       "extractionState": "manual",
       "localizations": {
