@@ -29602,6 +29602,23 @@
         }
       }
     },
+    "commandPalette.kind.file": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイル"
+          }
+        }
+      }
+    },
     "commandPalette.kind.markdown": {
       "extractionState": "manual",
       "localizations": {

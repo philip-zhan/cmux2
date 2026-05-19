@@ -1,3 +1,4 @@
+import Combine
 import Darwin
 import Foundation
 
@@ -40,7 +41,7 @@ struct CommandPaletteFileIndexSnapshot: Sendable, Equatable {
 }
 
 @MainActor
-final class CommandPaletteFileIndexer {
+final class CommandPaletteFileIndexer: ObservableObject {
     static let shared = CommandPaletteFileIndexer()
 
     /// Hard cap on the number of entries kept per snapshot. fd can produce millions of
@@ -60,9 +61,7 @@ final class CommandPaletteFileIndexer {
     private var process: Process?
     private var readTask: Task<Void, Never>?
     private var activeRequest: Request?
-    private(set) var currentSnapshot: CommandPaletteFileIndexSnapshot = .empty
-
-    var onSnapshotChanged: ((CommandPaletteFileIndexSnapshot) -> Void)?
+    @Published private(set) var currentSnapshot: CommandPaletteFileIndexSnapshot = .empty
 
     /// Begin (or reuse) an index build for `rootPath`. If the root matches the active
     /// request and a build is in flight or complete, this is a no-op.
@@ -71,7 +70,6 @@ final class CommandPaletteFileIndexer {
         guard !trimmed.isEmpty else {
             cancel(reason: .cancelled)
             currentSnapshot = .empty
-            notify()
             return
         }
 
@@ -94,7 +92,6 @@ final class CommandPaletteFileIndexer {
                 truncated: false,
                 generation: advanceGeneration()
             )
-            notify()
             return
         }
 
@@ -106,7 +103,6 @@ final class CommandPaletteFileIndexer {
             truncated: false,
             generation: buildGeneration
         )
-        notify()
         spawn(fd: fd, rootPath: trimmed, generation: buildGeneration)
     }
 
@@ -115,7 +111,6 @@ final class CommandPaletteFileIndexer {
         cancel(reason: .cancelled)
         activeRequest = nil
         currentSnapshot = .empty
-        notify()
     }
 
     private func advanceGeneration() -> UInt64 {
@@ -131,10 +126,6 @@ final class CommandPaletteFileIndexer {
         }
         process = nil
         _ = reason
-    }
-
-    private func notify() {
-        onSnapshotChanged?(currentSnapshot)
     }
 
     private func spawn(fd: FdExecutable, rootPath: String, generation buildGeneration: UInt64) {
@@ -167,7 +158,6 @@ final class CommandPaletteFileIndexer {
                 truncated: false,
                 generation: buildGeneration
             )
-            notify()
             return
         }
         self.process = process
@@ -207,7 +197,6 @@ final class CommandPaletteFileIndexer {
                     truncated: result.truncated,
                     generation: buildGeneration
                 )
-                self.notify()
             }
         }
     }

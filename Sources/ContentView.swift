@@ -1133,6 +1133,7 @@ struct ContentView: View {
     @State private var commandPalettePendingActivation: CommandPalettePendingActivation?
     @State private var commandPaletteResultsRevision: UInt64 = 0
     @State private var commandPaletteUsageHistoryByCommandId: [String: CommandPaletteUsageEntry] = [:]
+    @StateObject private var commandPaletteFileIndexer = CommandPaletteFileIndexer.shared
     @State private var isFeedbackComposerPresented = false
     @AppStorage(CommandPaletteRenameSelectionSettings.selectAllOnFocusKey)
     private var commandPaletteRenameSelectAllOnFocus = CommandPaletteRenameSelectionSettings.defaultSelectAllOnFocus
@@ -4942,6 +4943,36 @@ struct ContentView: View {
             return commandPaletteCommands(commandsContext: commandsContext ?? commandPaletteCachedCommandsContext())
         case .switcher:
             return commandPaletteSwitcherEntries(includeSurfaces: includeSurfaces)
+        case .files:
+            return commandPaletteFileEntries(snapshot: commandPaletteFileIndexer.currentSnapshot)
+        }
+    }
+
+    private func commandPaletteFileEntries(
+        snapshot: CommandPaletteFileIndexSnapshot
+    ) -> [CommandPaletteCommand] {
+        let kindLabel = String(localized: "commandPalette.kind.file", defaultValue: "File")
+        let rootPath = snapshot.rootPath
+        return snapshot.entries.enumerated().map { index, entry in
+            // Filename in `title` so basename matches highlight cleanly; relative
+            // directory goes in `subtitle` (and feeds the fuzzy corpus too).
+            let parentPath = (entry.relativePath as NSString).deletingLastPathComponent
+            let absolutePath = rootPath.isEmpty
+                ? entry.relativePath
+                : (rootPath as NSString).appendingPathComponent(entry.relativePath)
+            return CommandPaletteCommand(
+                id: "file:" + entry.relativePath,
+                rank: index,
+                title: entry.fileName,
+                subtitle: parentPath,
+                shortcutHint: nil,
+                kindLabel: kindLabel,
+                keywords: parentPath.isEmpty ? [entry.relativePath] : [entry.relativePath, parentPath],
+                dismissOnRun: true,
+                action: {
+                    CommandPaletteFileOpenRouter.shared.open(absolutePath: absolutePath)
+                }
+            )
         }
     }
 
@@ -4963,6 +4994,7 @@ struct ContentView: View {
             observedQuery: query
         )
         let scope = Self.commandPaletteListScope(for: effectiveQuery)
+        commandPaletteRequestFileIndexIfNeeded(scope: scope)
         let includeSurfaces = Self.commandPaletteSwitcherIncludesSurfaceEntries(
             searchAllSurfaces: commandPaletteSearchAllSurfaces,
             query: effectiveQuery
@@ -5375,6 +5407,34 @@ struct ContentView: View {
             )
         case .switcher:
             return commandPaletteSwitcherEntriesFingerprint(includeSurfaces: includeSurfaces)
+        case .files:
+            return commandPaletteFilesFingerprint()
+        }
+    }
+
+    private func commandPaletteFilesFingerprint() -> Int {
+        var hasher = Hasher()
+        hasher.combine("files")
+        hasher.combine(commandPaletteCurrentFileSearchRoot())
+        hasher.combine(commandPaletteFileIndexer.currentSnapshot.generation)
+        hasher.combine(commandPaletteFileIndexer.currentSnapshot.entries.count)
+        return hasher.finalize()
+    }
+
+    private func commandPaletteCurrentFileSearchRoot() -> String {
+        tabManager.selectedWorkspace?.currentDirectory ?? ""
+    }
+
+    /// Asks `CommandPaletteFileIndexer` to (re)index the focused workspace's root if
+    /// the `.files` scope is active. No-ops in any other scope so we don't spawn `fd`
+    /// for users who never engage file search.
+    private func commandPaletteRequestFileIndexIfNeeded(scope: CommandPaletteListScope) {
+        guard scope == .files else { return }
+        let root = commandPaletteCurrentFileSearchRoot()
+        if root.isEmpty {
+            commandPaletteFileIndexer.reset()
+        } else {
+            commandPaletteFileIndexer.requestIndex(forRootPath: root)
         }
     }
 
