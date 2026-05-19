@@ -84,6 +84,7 @@
 		D0B1001EA1B2C3D4E5F60001 /* BrowserPaneDropTargetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0B1001FA1B2C3D4E5F60001 /* BrowserPaneDropTargetView.swift */; };
 		D0B10016A1B2C3D4E5F60001 /* FilePreviewTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0B10017A1B2C3D4E5F60001 /* FilePreviewTextEditor.swift */; };
 		C0DEC0DEC0DEC0DEC0DE0001 /* CodeMirrorSpike.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0002 /* CodeMirrorSpike.swift */; };
+		C0DEC0DEC0DEC0DEC0DE0017 /* FilePreviewCodeEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0018 /* FilePreviewCodeEditor.swift */; };
 		C0DEC0DEC0DEC0DEC0DE0003 /* CodeViewerAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0004 /* CodeViewerAssets.swift */; };
 		C0DEC0DEC0DEC0DEC0DE0005 /* code-viewer in Resources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0006 /* code-viewer */; };
 		C0DEC0DEC0DEC0DEC0DE0007 /* CodeWebRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0008 /* CodeWebRenderer.swift */; };
@@ -757,6 +758,7 @@
 		C0DEC0DEC0DEC0DEC0DE0012 /* CodeViewerLanguageDetectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeViewerLanguageDetectorTests.swift; sourceTree = "<group>"; };
 		C0DEC0DEC0DEC0DEC0DE0014 /* CodeViewerGitDiffSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeViewerGitDiffSourceTests.swift; sourceTree = "<group>"; };
 		C0DEC0DEC0DEC0DEC0DE0016 /* CodePreviewEngineSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodePreviewEngineSettingsTests.swift; sourceTree = "<group>"; };
+		C0DEC0DEC0DEC0DEC0DE0018 /* FilePreviewCodeEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/FilePreviewCodeEditor.swift; sourceTree = "<group>"; };
 		A5001451A5001451A5001451 /* FilePreviewNativeBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/FilePreviewNativeBackground.swift; sourceTree = "<group>"; };
 		A5001016 /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = GhosttyKit.xcframework; sourceTree = "<group>"; };
 		A5001017 /* ghostty.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ghostty.h; sourceTree = "<group>"; };
@@ -1435,6 +1437,7 @@
 				C0DEC0DEC0DEC0DEC0DE000C /* CodeViewerLanguageDetector.swift */,
 				C0DEC0DEC0DEC0DEC0DE000E /* CodeViewerGitDiffSource.swift */,
 				C0DEC0DEC0DEC0DEC0DE0010 /* CodePreviewEngineSettings.swift */,
+				C0DEC0DEC0DEC0DEC0DE0018 /* FilePreviewCodeEditor.swift */,
 				A5001451A5001451A5001451 /* FilePreviewNativeBackground.swift */,
 				A5001442A5001442A5001442 /* FilePreviewModeSupport.swift */,
 				A5001444A5001444A5001444 /* FilePreviewWorkspaceOpenSupport.swift */,
@@ -2188,6 +2191,7 @@
 				C0DEC0DEC0DEC0DEC0DE000B /* CodeViewerLanguageDetector.swift in Sources */,
 				C0DEC0DEC0DEC0DEC0DE000D /* CodeViewerGitDiffSource.swift in Sources */,
 				C0DEC0DEC0DEC0DEC0DE000F /* CodePreviewEngineSettings.swift in Sources */,
+				C0DEC0DEC0DEC0DEC0DE0017 /* FilePreviewCodeEditor.swift in Sources */,
 				A5001450A5001450A5001450 /* FilePreviewNativeBackground.swift in Sources */,
 				A5001443A5001443A5001443 /* FilePreviewModeSupport.swift in Sources */,
 				A5001445A5001445A5001445 /* FilePreviewWorkspaceOpenSupport.swift in Sources */,

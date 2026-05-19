@@ -906,14 +906,22 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
     @Published private(set) var displayIcon: String?
     @Published private(set) var isFileUnavailable = false
     @Published private(set) var textContent = ""
+    /// On-disk snapshot of the file text. Updated by `applyTextLoadResult` and
+    /// `saveTextContent`. The CodeMirror engine binds its `content:` prop to
+    /// this (not to `textContent`) so that per-keystroke edits do not invalidate
+    /// the renderer payload and remount the WebKit editor.
+    @Published private(set) var originalTextContent = ""
     @Published private(set) var isDirty = false
     @Published private(set) var isSaving = false
     @Published private(set) var focusFlashToken = 0
     @Published private(set) var previewMode: FilePreviewMode
+    /// True when text mode should render through `FilePreviewCodeEditor`
+    /// (CodeMirror in a WKWebView) instead of `FilePreviewTextEditor`
+    /// (NSTextView). Decided once when the panel enters text mode, so flipping
+    /// the engine preference applies on the next file open.
+    @Published private(set) var usesCodeMirrorEngine = false
 
     let nativeViewSessions = FilePreviewNativeViewSessions()
-
-    private var originalTextContent = ""
     private var textEncoding: String.Encoding = .utf8
     private var previewModeGeneration = 0
     private var textLoadGeneration = 0
@@ -1061,9 +1069,22 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
 
     private func prepareContentForPreviewMode() {
         if previewMode == .text {
+            evaluateTextEnginePreference()
             loadTextContent(replacingDirtyContent: false)
         } else {
+            usesCodeMirrorEngine = false
             isFileUnavailable = !FileManager.default.fileExists(atPath: filePath)
+        }
+    }
+
+    private func evaluateTextEnginePreference() {
+        let size = (try? FileManager.default.attributesOfItem(atPath: filePath)[.size]) as? Int
+        let next = CodePreviewEngineSettings.shouldUseCodeMirror(
+            forPath: filePath,
+            fileSize: size
+        )
+        if usesCodeMirrorEngine != next {
+            usesCodeMirrorEngine = next
         }
     }
 
@@ -1264,13 +1285,23 @@ struct FilePreviewPanelView: View {
         } else {
             switch panel.previewMode {
             case .text:
-                FilePreviewTextEditor(
-                    panel: panel,
-                    isVisibleInUI: isVisibleInUI,
-                    themeBackgroundColor: contentBackgroundColor,
-                    themeForegroundColor: themeForegroundColor,
-                    drawsBackground: appearance.drawsContentBackground
-                )
+                if panel.usesCodeMirrorEngine {
+                    FilePreviewCodeEditor(
+                        panel: panel,
+                        isVisibleInUI: isVisibleInUI,
+                        themeBackgroundColor: contentBackgroundColor,
+                        themeForegroundColor: themeForegroundColor,
+                        drawsBackground: appearance.drawsContentBackground
+                    )
+                } else {
+                    FilePreviewTextEditor(
+                        panel: panel,
+                        isVisibleInUI: isVisibleInUI,
+                        themeBackgroundColor: contentBackgroundColor,
+                        themeForegroundColor: themeForegroundColor,
+                        drawsBackground: appearance.drawsContentBackground
+                    )
+                }
             case .pdf:
                 FilePreviewPDFView(
                     panel: panel,

@@ -15,8 +15,8 @@ final class CodePreviewEngineSettingsTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
     }
 
-    func testDefaultsToNativeText() {
-        XCTAssertEqual(CodePreviewEngineSettings.current(defaults: defaults), .nativeText)
+    func testDefaultsToAuto() {
+        XCTAssertEqual(CodePreviewEngineSettings.current(defaults: defaults), .auto)
     }
 
     func testReadsExplicitEngineFromDefaults() {

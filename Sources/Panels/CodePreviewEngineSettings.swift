@@ -40,7 +40,10 @@ enum CodePreviewEngine: String, CaseIterable, Identifiable {
 
 enum CodePreviewEngineSettings {
     static let engineKey = "codePreviewEngine"
-    static let defaultEngine: CodePreviewEngine = .nativeText
+    // Default to `.auto`: CodeMirror picks up any file the language detector
+    // recognizes; plain/large files fall back to the NSTextView engine.
+    // Set `codePreviewEngine = nativeText` in defaults to revert globally.
+    static let defaultEngine: CodePreviewEngine = .auto
 
     static func current(defaults: UserDefaults = .standard) -> CodePreviewEngine {
         guard let raw = defaults.string(forKey: engineKey),
