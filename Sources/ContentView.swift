@@ -4969,11 +4969,62 @@ struct ContentView: View {
                 kindLabel: kindLabel,
                 keywords: parentPath.isEmpty ? [entry.relativePath] : [entry.relativePath, parentPath],
                 dismissOnRun: true,
-                action: {
-                    CommandPaletteFileOpenRouter.shared.open(absolutePath: absolutePath)
+                action: { [weak tabManager] in
+                    Self.runCommandPaletteFileOpen(
+                        absolutePath: absolutePath,
+                        workspace: tabManager?.selectedWorkspace
+                    )
                 }
             )
         }
+    }
+
+    /// Routes a picked file from the `.files` scope into either a `FilePreviewPanel`
+    /// (text/source/image/PDF/markdown) or Finder reveal (everything else). Falls back
+    /// to Finder when no workspace is available or the pane lookup fails — opening in
+    /// Finder is always better than dropping the click silently.
+    private static func runCommandPaletteFileOpen(
+        absolutePath: String,
+        workspace: Workspace?
+    ) {
+        let url = URL(fileURLWithPath: absolutePath)
+        guard FileManager.default.fileExists(atPath: absolutePath) else {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            return
+        }
+
+        guard let workspace,
+              let paneId = workspace.bonsplitController.focusedPaneId
+                  ?? workspace.bonsplitController.allPaneIds.first,
+              commandPaletteFileOpenSupportsPreview(url: url) else {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            return
+        }
+
+        _ = workspace.openFileSurfaces(
+            inPane: paneId,
+            filePaths: [absolutePath],
+            focus: true,
+            reuseExisting: true
+        )
+    }
+
+    private static func commandPaletteFileOpenSupportsPreview(url: URL) -> Bool {
+        if MarkdownPanelFileLinkResolver.isMarkdownPathLike(url.path) {
+            return true
+        }
+        guard let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType else {
+            // Unknown — treat as previewable; FilePreviewPanel decides whether to render
+            // it as text/hex/etc. Wrong-guess cost is a "Can't preview" panel, which is
+            // still better UX than a Finder reveal for a file the user expected to read.
+            return true
+        }
+        if type.conforms(to: .text) || type.conforms(to: .sourceCode)
+            || type.conforms(to: .image) || type.conforms(to: .pdf)
+            || type.conforms(to: .movie) || type.conforms(to: .audio) {
+            return true
+        }
+        return false
     }
 
     nonisolated private static func commandPaletteSwitcherIncludesSurfaceEntries(
