@@ -32,20 +32,54 @@ import { lua } from "@codemirror/legacy-modes/mode/lua";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { MergeView } from "@codemirror/merge";
 
-// Spike still has the loose typing surface; the production renderer will
-// switch to a strongly-typed message channel.
+type ThemePalette = {
+  background: string;
+  foreground: string;
+  gutterBackground: string;
+  gutterForeground: string;
+  selectionBackground: string;
+  activeLineBackground: string;
+};
+
 type Payload = {
   content?: string;
   language?: string;
   isDark?: boolean;
   fontSize?: number;
+  readOnly?: boolean;
   diffOriginal?: string;
   diffModified?: string;
+  theme?: ThemePalette;
 };
+
+type SwiftHandler = {
+  postMessage: (msg: { action: string; [k: string]: unknown }) => void;
+};
+
+declare global {
+  interface Window {
+    webkit?: {
+      messageHandlers?: {
+        cmuxCode?: SwiftHandler;
+      };
+    };
+  }
+}
+
+function postToSwift(action: string, extra: Record<string, unknown> = {}) {
+  const handler = window.webkit?.messageHandlers?.cmuxCode;
+  if (!handler) return;
+  try {
+    handler.postMessage({ action, ...extra });
+  } catch {
+    // No-op: WebKit may have torn down the bridge.
+  }
+}
 
 const fontSizeCompartment = new Compartment();
 const themeCompartment = new Compartment();
 const languageCompartment = new Compartment();
+const readOnlyCompartment = new Compartment();
 
 function languageExtension(id: string | undefined): Extension {
   switch (id) {
@@ -98,6 +132,34 @@ function languageExtension(id: string | undefined): Extension {
   }
 }
 
+let contentChangeTimer: number | null = null;
+function scheduleContentChange(view: EditorView) {
+  if (contentChangeTimer != null) {
+    window.clearTimeout(contentChangeTimer);
+  }
+  contentChangeTimer = window.setTimeout(() => {
+    contentChangeTimer = null;
+    postToSwift("contentChanged", { content: view.state.doc.toString() });
+  }, 120);
+}
+
+const contentChangeListener = EditorView.updateListener.of((u) => {
+  if (u.docChanged) scheduleContentChange(u.view);
+});
+
+function saveKeymap() {
+  return keymap.of([
+    {
+      key: "Mod-s",
+      preventDefault: true,
+      run: () => {
+        postToSwift("requestSave");
+        return true;
+      },
+    },
+  ]);
+}
+
 function baseExtensions(): Extension[] {
   return [
     lineNumbers(),
@@ -107,10 +169,13 @@ function baseExtensions(): Extension[] {
     EditorState.allowMultipleSelections.of(true),
     history(),
     search({ top: true }),
+    saveKeymap(),
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
     fontSizeCompartment.of(EditorView.theme({ "&": { fontSize: "13px" } })),
     themeCompartment.of([]),
     languageCompartment.of([]),
+    readOnlyCompartment.of(EditorState.readOnly.of(false)),
+    contentChangeListener,
   ];
 }
 
@@ -156,13 +221,45 @@ function applyLanguage(id: string | undefined) {
   mergeView?.b.dispatch({ effects });
 }
 
-function applyTheme(isDark: boolean) {
-  const ext = isDark ? oneDark : [];
-  const effects = themeCompartment.reconfigure(ext);
+function paletteTheme(palette: ThemePalette): Extension {
+  return EditorView.theme(
+    {
+      "&": {
+        color: palette.foreground,
+        backgroundColor: palette.background,
+      },
+      ".cm-content": { caretColor: palette.foreground },
+      ".cm-gutters": {
+        backgroundColor: palette.gutterBackground,
+        color: palette.gutterForeground,
+        border: "none",
+      },
+      ".cm-activeLine": { backgroundColor: palette.activeLineBackground },
+      ".cm-activeLineGutter": { backgroundColor: palette.activeLineBackground },
+      "&.cm-focused .cm-selectionBackground, ::selection": {
+        backgroundColor: palette.selectionBackground,
+      },
+    },
+    { dark: false }
+  );
+}
+
+function applyTheme(isDark: boolean, palette?: ThemePalette) {
+  const base = isDark ? oneDark : [];
+  const overlay = palette ? paletteTheme(palette) : [];
+  const effects = themeCompartment.reconfigure([base, overlay]);
   editor?.dispatch({ effects });
   mergeView?.a.dispatch({ effects });
   mergeView?.b.dispatch({ effects });
   document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+  document.body.style.background = palette?.background ?? "transparent";
+}
+
+function applyReadOnly(readOnly: boolean) {
+  const effects = readOnlyCompartment.reconfigure(EditorState.readOnly.of(readOnly));
+  editor?.dispatch({ effects });
+  mergeView?.a.dispatch({ effects });
+  mergeView?.b.dispatch({ effects });
 }
 
 function applyFontSize(px: number) {
@@ -199,8 +296,9 @@ window.__cmuxCodeApply = function (payload) {
     mountSingle(root, p.content ?? "");
   }
   applyLanguage(p.language);
-  applyTheme(!!p.isDark);
+  applyTheme(!!p.isDark, p.theme);
   applyFontSize(p.fontSize ?? 13);
+  applyReadOnly(!!p.readOnly);
 };
 
 window.__cmuxCodeGet = function () {
@@ -210,3 +308,4 @@ window.__cmuxCodeGet = function () {
 };
 
 document.documentElement.dataset.cmuxCodeViewerReady = "1";
+postToSwift("ready");
