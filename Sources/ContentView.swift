@@ -4833,10 +4833,23 @@ struct ContentView: View {
     }
 
     nonisolated private static func commandPaletteListScope(for query: String) -> CommandPaletteListScope {
+        commandPaletteListScope(for: query, mode: CommandPaletteFileSearchSettings.mode())
+    }
+
+    nonisolated static func commandPaletteListScope(
+        for query: String,
+        mode: CommandPaletteFileSearchMode
+    ) -> CommandPaletteListScope {
         if query.hasPrefix(Self.commandPaletteCommandsPrefix) {
             return .commands
         }
-        return .switcher
+        let hasFilesPrefix = query.hasPrefix(CommandPaletteFileSearchSettings.filesPrefix)
+        switch mode {
+        case .filesPrefixed:
+            return hasFilesPrefix ? .files : .switcher
+        case .switcherPrefixed:
+            return hasFilesPrefix ? .switcher : .files
+        }
     }
 
     static func commandPaletteShouldResetVisibleResultsForQueryTransition(
@@ -4866,6 +4879,8 @@ struct ContentView: View {
             return commandPaletteSearchAllSurfaces
                 ? String(localized: "commandPalette.search.switcherPlaceholderAllSurfaces", defaultValue: "Search workspaces and surfaces")
                 : String(localized: "commandPalette.search.switcherPlaceholder", defaultValue: "Search workspaces")
+        case .files:
+            return String(localized: "commandPalette.search.filesPlaceholder", defaultValue: "Search files by name")
         }
     }
 
@@ -4877,6 +4892,11 @@ struct ContentView: View {
             return commandPaletteSearchAllSurfaces
                 ? String(localized: "commandPalette.search.switcherEmptyAllSurfaces", defaultValue: "No workspaces or surfaces match your search.")
                 : String(localized: "commandPalette.search.switcherEmpty", defaultValue: "No workspaces match your search.")
+        case .files:
+            return String(
+                localized: "commandPalette.search.filesEmpty",
+                defaultValue: "Start typing to search files in this workspace."
+            )
         }
     }
 
@@ -4923,8 +4943,23 @@ struct ContentView: View {
             let suffix = String(query.dropFirst(Self.commandPaletteCommandsPrefix.count))
             return suffix.trimmingCharacters(in: .whitespacesAndNewlines)
         case .switcher:
-            return query.trimmingCharacters(in: .whitespacesAndNewlines)
+            // The switcher accepts both bare queries and the `@` prefix depending on the
+            // configured file-search mode. Strip the file-search prefix if present so
+            // `@foo` in VS Code-parity mode still matches the same way `foo` does.
+            return Self.stripFilesPrefixIfPresent(query)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        case .files:
+            return Self.stripFilesPrefixIfPresent(query)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
         }
+    }
+
+    nonisolated private static func stripFilesPrefixIfPresent(_ query: String) -> String {
+        let prefix = CommandPaletteFileSearchSettings.filesPrefix
+        if query.hasPrefix(prefix) {
+            return String(query.dropFirst(prefix.count))
+        }
+        return query
     }
 
     private func commandPaletteEntries(for scope: CommandPaletteListScope) -> [CommandPaletteCommand] {

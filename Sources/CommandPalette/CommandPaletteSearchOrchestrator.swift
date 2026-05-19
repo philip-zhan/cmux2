@@ -3,6 +3,7 @@ import Foundation
 enum CommandPaletteListScope: String, Sendable {
     case commands
     case switcher
+    case files
 }
 
 struct CommandPaletteUsageEntry: Codable, Sendable {

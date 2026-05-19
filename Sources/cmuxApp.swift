@@ -4675,6 +4675,27 @@ enum CommandPaletteSwitcherSearchSettings {
     }
 }
 
+enum CommandPaletteFileSearchMode: String, CaseIterable, Sendable {
+    /// Default: bare query searches the switcher; `@` prefix searches files.
+    case filesPrefixed
+    /// VS Code parity: bare query searches files; `@` prefix searches the switcher.
+    case switcherPrefixed
+}
+
+enum CommandPaletteFileSearchSettings {
+    static let modeKey = "commandPalette.fileSearchMode"
+    static let defaultMode: CommandPaletteFileSearchMode = .filesPrefixed
+    static let filesPrefix = "@"
+
+    static func mode(defaults: UserDefaults = .standard) -> CommandPaletteFileSearchMode {
+        guard let raw = defaults.string(forKey: modeKey),
+              let parsed = CommandPaletteFileSearchMode(rawValue: raw) else {
+            return defaultMode
+        }
+        return parsed
+    }
+}
+
 enum ClaudeCodeIntegrationSettings {
     static let hooksEnabledKey = "claudeCodeHooksEnabled"
     static let defaultHooksEnabled = true
