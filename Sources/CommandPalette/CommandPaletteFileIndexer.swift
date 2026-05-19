@@ -23,6 +23,23 @@ struct CommandPaletteFileIndexSnapshot: Sendable, Equatable {
         let relativePath: String
         /// Final path component of `relativePath`.
         let fileName: String
+        /// Pre-lowercased basename for the substring ranker. Computed off-main while
+        /// reading `fd` so per-keystroke search avoids the locale-aware fold cost.
+        let fileNameLower: String
+        /// Pre-lowercased relative path for the substring ranker.
+        let relativePathLower: String
+
+        init(
+            relativePath: String,
+            fileName: String,
+            fileNameLower: String? = nil,
+            relativePathLower: String? = nil
+        ) {
+            self.relativePath = relativePath
+            self.fileName = fileName
+            self.fileNameLower = fileNameLower ?? fileName.lowercased()
+            self.relativePathLower = relativePathLower ?? relativePath.lowercased()
+        }
     }
 
     let rootPath: String
@@ -44,10 +61,12 @@ struct CommandPaletteFileIndexSnapshot: Sendable, Equatable {
 final class CommandPaletteFileIndexer: ObservableObject {
     static let shared = CommandPaletteFileIndexer()
 
-    /// Hard cap on the number of entries kept per snapshot. fd can produce millions of
-    /// rows in pathological repos; the palette can't usefully display more than a few
-    /// thousand, so we stop reading once we hit this.
-    static let maxEntries = 200_000
+    /// Hard cap on the number of entries kept per snapshot. The cap is intentionally
+    /// modest — the substring ranker is fast at this scale (~1ms/keystroke over 30k
+    /// candidates), and beyond it the user almost certainly wants to refine the query
+    /// rather than scroll through more rows. The earlier 200k cap noticeably stalled
+    /// the corpus build on huge monorepos.
+    static let maxEntries = 30_000
 
     private struct FdExecutable {
         let url: URL
@@ -243,7 +262,12 @@ final class CommandPaletteFileIndexer: ObservableObject {
                 }
                 guard !relative.isEmpty else { continue }
                 let fileName = (relative as NSString).lastPathComponent
-                entries.append(.init(relativePath: relative, fileName: fileName))
+                entries.append(.init(
+                    relativePath: relative,
+                    fileName: fileName,
+                    fileNameLower: fileName.lowercased(),
+                    relativePathLower: relative.lowercased()
+                ))
                 if entries.count >= maxEntries {
                     truncated = true
                     break
