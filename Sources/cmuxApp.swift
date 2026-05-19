@@ -365,6 +365,9 @@ struct cmuxApp: App {
                     Button("Browser Import Hint Debug…") {
                         BrowserImportHintDebugWindowController.shared.show()
                     }
+                    Button("CodeMirror 6 Spike…") {
+                        CodeMirrorSpikeDebugWindowController.shared.show()
+                    }
                     Button(
                         String(
                             localized: "debug.menu.browserProfilePopoverDebug",

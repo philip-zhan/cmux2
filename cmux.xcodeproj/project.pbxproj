@@ -83,6 +83,9 @@
 		D0B1001CA1B2C3D4E5F60001 /* PaneDropRoutingSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0B1001DA1B2C3D4E5F60001 /* PaneDropRoutingSupport.swift */; };
 		D0B1001EA1B2C3D4E5F60001 /* BrowserPaneDropTargetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0B1001FA1B2C3D4E5F60001 /* BrowserPaneDropTargetView.swift */; };
 		D0B10016A1B2C3D4E5F60001 /* FilePreviewTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0B10017A1B2C3D4E5F60001 /* FilePreviewTextEditor.swift */; };
+		C0DEC0DEC0DEC0DEC0DE0001 /* CodeMirrorSpike.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0002 /* CodeMirrorSpike.swift */; };
+		C0DEC0DEC0DEC0DEC0DE0003 /* CodeViewerAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0004 /* CodeViewerAssets.swift */; };
+		C0DEC0DEC0DEC0DEC0DE0005 /* code-viewer in Resources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0006 /* code-viewer */; };
 		A5001450A5001450A5001450 /* FilePreviewNativeBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5001451A5001451A5001451 /* FilePreviewNativeBackground.swift */; };
 		D0B10018A1B2C3D4E5F60001 /* FileDropOverlayViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0B10019A1B2C3D4E5F60001 /* FileDropOverlayViewTests.swift */; };
 		D35B71010000000000000001 /* StartupBreadcrumbLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D35B71010000000000000002 /* StartupBreadcrumbLog.swift */; };
@@ -735,6 +738,9 @@
 		D0B1001DA1B2C3D4E5F60001 /* PaneDropRoutingSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneDropRoutingSupport.swift; sourceTree = "<group>"; };
 		D0B1001FA1B2C3D4E5F60001 /* BrowserPaneDropTargetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserPaneDropTargetView.swift; sourceTree = "<group>"; };
 		D0B10017A1B2C3D4E5F60001 /* FilePreviewTextEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/FilePreviewTextEditor.swift; sourceTree = "<group>"; };
+		C0DEC0DEC0DEC0DEC0DE0002 /* CodeMirrorSpike.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/CodeMirrorSpike.swift; sourceTree = "<group>"; };
+		C0DEC0DEC0DEC0DEC0DE0004 /* CodeViewerAssets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/CodeViewerAssets.swift; sourceTree = "<group>"; };
+		C0DEC0DEC0DEC0DEC0DE0006 /* code-viewer */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = "code-viewer"; sourceTree = "<group>"; };
 		A5001451A5001451A5001451 /* FilePreviewNativeBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/FilePreviewNativeBackground.swift; sourceTree = "<group>"; };
 		A5001016 /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = GhosttyKit.xcframework; sourceTree = "<group>"; };
 		A5001017 /* ghostty.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ghostty.h; sourceTree = "<group>"; };
@@ -1107,6 +1113,7 @@
 				FEED0000000000000000F006 /* opencode-plugin.js */,
 				FEED0A00000000000000F006 /* feed-tui */,
 				A9D9000000000000000F0016 /* markdown-viewer */,
+				C0DEC0DEC0DEC0DEC0DE0006 /* code-viewer */,
 				A5001622 /* cmux.sdef */,
 			);
 			path = Resources;
@@ -1405,6 +1412,8 @@
 				64D7B3C5A409C0B3EDD002CE /* FilePreviewMediaSession.swift */,
 				0A02623202562490B3E88372 /* FilePreviewQuickLookSession.swift */,
 				D0B10017A1B2C3D4E5F60001 /* FilePreviewTextEditor.swift */,
+				C0DEC0DEC0DEC0DEC0DE0002 /* CodeMirrorSpike.swift */,
+				C0DEC0DEC0DEC0DEC0DE0004 /* CodeViewerAssets.swift */,
 				A5001451A5001451A5001451 /* FilePreviewNativeBackground.swift */,
 				A5001442A5001442A5001442 /* FilePreviewModeSupport.swift */,
 				A5001444A5001444A5001444 /* FilePreviewWorkspaceOpenSupport.swift */,
@@ -1847,6 +1856,7 @@
 				FEED0000000000000000F007 /* opencode-plugin.js in Resources */,
 				FEED0A00000000000000F007 /* feed-tui in Resources */,
 				A9D9000000000000000F0017 /* markdown-viewer in Resources */,
+				C0DEC0DEC0DEC0DEC0DE0005 /* code-viewer in Resources */,
 				A5001623 /* cmux.sdef in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2147,6 +2157,8 @@
 				287C15EFC945CE9D560600E3 /* FilePreviewMediaSession.swift in Sources */,
 				DD62AFF1D95A1D5D1850AC10 /* FilePreviewQuickLookSession.swift in Sources */,
 				D0B10016A1B2C3D4E5F60001 /* FilePreviewTextEditor.swift in Sources */,
+				C0DEC0DEC0DEC0DEC0DE0001 /* CodeMirrorSpike.swift in Sources */,
+				C0DEC0DEC0DEC0DEC0DE0003 /* CodeViewerAssets.swift in Sources */,
 				A5001450A5001450A5001450 /* FilePreviewNativeBackground.swift in Sources */,
 				A5001443A5001443A5001443 /* FilePreviewModeSupport.swift in Sources */,
 				A5001445A5001445A5001445 /* FilePreviewWorkspaceOpenSupport.swift in Sources */,
