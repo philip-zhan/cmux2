@@ -30,6 +30,11 @@ enum CommandPaletteFilePathRanker {
     struct Match: Sendable {
         let id: String
         let score: Int
+        /// Original-cased basename. Carried on Match so the JIT materializer in
+        /// ContentView doesn't have to look the entry back up by ID.
+        let fileName: String
+        /// Original-cased relative path.
+        let relativePath: String
         /// Indices into the *original-cased* `fileName` for highlight rendering. Empty
         /// when the match is path-only (no basename hit).
         let fileNameMatchIndices: Set<Int>
@@ -54,7 +59,13 @@ enum CommandPaletteFilePathRanker {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return Array(candidates.prefix(limit)).map {
-                Match(id: $0.id, score: 0, fileNameMatchIndices: [])
+                Match(
+                    id: $0.id,
+                    score: 0,
+                    fileName: $0.fileName,
+                    relativePath: $0.relativePath,
+                    fileNameMatchIndices: []
+                )
             }
         }
         let needle = trimmed.lowercased()
@@ -96,13 +107,21 @@ enum CommandPaletteFilePathRanker {
                 original: candidate.fileName,
                 range: basenameRange
             )
-            return Match(id: candidate.id, score: score, fileNameMatchIndices: matchIndices)
+            return Match(
+                id: candidate.id,
+                score: score,
+                fileName: candidate.fileName,
+                relativePath: candidate.relativePath,
+                fileNameMatchIndices: matchIndices
+            )
         }
         if candidate.relativePathLower.range(of: needle) != nil {
             let penalty = min(candidate.relativePathLower.count, Self.lengthPenaltyCap)
             return Match(
                 id: candidate.id,
                 score: Self.tierPathContains - penalty,
+                fileName: candidate.fileName,
+                relativePath: candidate.relativePath,
                 fileNameMatchIndices: []
             )
         }

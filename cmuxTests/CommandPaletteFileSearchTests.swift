@@ -43,55 +43,62 @@ final class CommandPaletteFileSearchTests: XCTestCase {
         )
     }
 
-    // MARK: - commandPaletteFileEntriesToShow
+    // MARK: - commandPaletteFileRankerCandidates
 
-    private func makeSnapshotEntries(_ paths: [String]) -> [CommandPaletteFileIndexSnapshot.Entry] {
-        paths.map { path in
+    private func makeSnapshot(_ paths: [String]) -> CommandPaletteFileIndexSnapshot {
+        let entries = paths.map { path in
             CommandPaletteFileIndexSnapshot.Entry(
                 relativePath: path,
                 fileName: (path as NSString).lastPathComponent
             )
         }
+        return CommandPaletteFileIndexSnapshot(
+            rootPath: "/tmp/test",
+            entries: entries,
+            status: .ready,
+            truncated: false,
+            generation: 1
+        )
     }
 
-    func testEntriesToShowReturnsFullSnapshotWhenQueryNonEmpty() {
-        let snapshot = makeSnapshotEntries(["a/foo.swift", "b/bar.swift"])
-        let result = ContentView.commandPaletteFileEntriesToShow(
-            snapshotEntries: snapshot,
+    func testRankerCandidatesReturnsAllSnapshotEntriesWhenQueryNonEmpty() {
+        let snapshot = makeSnapshot(["a/foo.swift", "b/bar.swift"])
+        let candidates = ContentView.commandPaletteFileRankerCandidates(
+            snapshot: snapshot,
             queryIsEmpty: false,
             recentsRanks: ["a/foo.swift": 0]
         )
-        XCTAssertEqual(result.map(\.relativePath), ["a/foo.swift", "b/bar.swift"])
+        XCTAssertEqual(candidates.map(\.relativePath), ["a/foo.swift", "b/bar.swift"])
     }
 
-    func testEntriesToShowReturnsEmptyWhenNoQueryAndNoRecents() {
-        let snapshot = makeSnapshotEntries(["a/foo.swift", "b/bar.swift"])
-        let result = ContentView.commandPaletteFileEntriesToShow(
-            snapshotEntries: snapshot,
+    func testRankerCandidatesReturnsEmptyWhenNoQueryAndNoRecents() {
+        let snapshot = makeSnapshot(["a/foo.swift", "b/bar.swift"])
+        let candidates = ContentView.commandPaletteFileRankerCandidates(
+            snapshot: snapshot,
             queryIsEmpty: true,
             recentsRanks: [:]
         )
-        XCTAssertTrue(result.isEmpty)
+        XCTAssertTrue(candidates.isEmpty)
     }
 
-    func testEntriesToShowReturnsOnlyRecentsInRecencyOrderWhenQueryEmpty() {
-        let snapshot = makeSnapshotEntries(["a/foo.swift", "b/bar.swift", "c/baz.swift"])
-        let result = ContentView.commandPaletteFileEntriesToShow(
-            snapshotEntries: snapshot,
+    func testRankerCandidatesReturnsOnlyRecentsInRecencyOrderWhenQueryEmpty() {
+        let snapshot = makeSnapshot(["a/foo.swift", "b/bar.swift", "c/baz.swift"])
+        let candidates = ContentView.commandPaletteFileRankerCandidates(
+            snapshot: snapshot,
             queryIsEmpty: true,
             recentsRanks: ["b/bar.swift": 0, "a/foo.swift": 1]
         )
-        XCTAssertEqual(result.map(\.relativePath), ["b/bar.swift", "a/foo.swift"])
+        XCTAssertEqual(candidates.map(\.relativePath), ["b/bar.swift", "a/foo.swift"])
     }
 
-    func testEntriesToShowDropsRecentsMissingFromSnapshot() {
-        let snapshot = makeSnapshotEntries(["a/foo.swift"])
-        let result = ContentView.commandPaletteFileEntriesToShow(
-            snapshotEntries: snapshot,
+    func testRankerCandidatesDropsRecentsMissingFromSnapshot() {
+        let snapshot = makeSnapshot(["a/foo.swift"])
+        let candidates = ContentView.commandPaletteFileRankerCandidates(
+            snapshot: snapshot,
             queryIsEmpty: true,
             recentsRanks: ["deleted/old.swift": 0, "a/foo.swift": 1]
         )
-        XCTAssertEqual(result.map(\.relativePath), ["a/foo.swift"])
+        XCTAssertEqual(candidates.map(\.relativePath), ["a/foo.swift"])
     }
 
     // MARK: - Recents store

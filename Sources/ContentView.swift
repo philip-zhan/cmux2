@@ -4945,74 +4945,45 @@ struct ContentView: View {
         case .switcher:
             return commandPaletteSwitcherEntries(includeSurfaces: includeSurfaces)
         case .files:
-            return commandPaletteFileEntries(snapshot: commandPaletteFileIndexer.currentSnapshot)
+            // `.files` skips the per-entry CommandPaletteCommand build entirely — the
+            // ranker reads directly from the indexer's snapshot, and matching results
+            // are materialized JIT in `scheduleCommandPaletteResultsRefresh`. Returning
+            // empty here keeps the switch exhaustive without paying for the build.
+            return []
         }
-    }
-
-    private func commandPaletteFileEntries(
-        snapshot: CommandPaletteFileIndexSnapshot
-    ) -> [CommandPaletteCommand] {
-        let kindLabel = String(localized: "commandPalette.kind.file", defaultValue: "File")
-        let rootPath = snapshot.rootPath
-        let recentsRanks = commandPaletteFileRecentsRanks(workspaceID: tabManager.selectedWorkspace?.id)
-        let entries = Self.commandPaletteFileEntriesToShow(
-            snapshotEntries: snapshot.entries,
-            queryIsEmpty: commandPaletteListScope == .files && commandPaletteQueryForMatching.isEmpty,
-            recentsRanks: recentsRanks
-        )
-        return entries.enumerated().map { index, entry in
-            // Filename in `title` so basename matches highlight cleanly; relative
-            // directory goes in `subtitle` (and feeds the fuzzy corpus too).
-            let parentPath = (entry.relativePath as NSString).deletingLastPathComponent
-            let absolutePath = rootPath.isEmpty
-                ? entry.relativePath
-                : (rootPath as NSString).appendingPathComponent(entry.relativePath)
-            return CommandPaletteCommand(
-                id: "file:" + entry.relativePath,
-                rank: index,
-                title: entry.fileName,
-                subtitle: parentPath,
-                shortcutHint: nil,
-                kindLabel: kindLabel,
-                keywords: parentPath.isEmpty ? [entry.relativePath] : [entry.relativePath, parentPath],
-                dismissOnRun: true,
-                action: { [weak tabManager] in
-                    Self.runCommandPaletteFileOpen(
-                        absolutePath: absolutePath,
-                        relativePath: entry.relativePath,
-                        rootPath: rootPath,
-                        workspace: tabManager?.selectedWorkspace
-                    )
-                }
-            )
-        }
-    }
-
-    /// When the user opens the palette with no query in `.files` scope, only show
-    /// recently-opened files (sorted by recency). Once they start typing, return the
-    /// full fd snapshot so the fuzzy matcher can search everything.
-    static func commandPaletteFileEntriesToShow(
-        snapshotEntries: [CommandPaletteFileIndexSnapshot.Entry],
-        queryIsEmpty: Bool,
-        recentsRanks: [String: Int]
-    ) -> [CommandPaletteFileIndexSnapshot.Entry] {
-        guard queryIsEmpty else { return snapshotEntries }
-        guard !recentsRanks.isEmpty else { return [] }
-        return snapshotEntries
-            .compactMap { entry -> (Int, CommandPaletteFileIndexSnapshot.Entry)? in
-                guard let rank = recentsRanks[entry.relativePath] else { return nil }
-                return (rank, entry)
-            }
-            .sorted { $0.0 < $1.0 }
-            .map(\.1)
     }
 
     /// Builds ranker candidates from the indexer snapshot. Cheap because the lowercased
     /// forms were precomputed off-main while reading fd.
+    ///
+    /// When the query is empty, the candidate set is scoped to entries that appear in
+    /// the workspace's recents list (sorted by recency). This both matches the
+    /// "recents only on empty query" UX and avoids scanning 30k entries to produce a
+    /// list of zero rows.
     static func commandPaletteFileRankerCandidates(
-        snapshot: CommandPaletteFileIndexSnapshot
+        snapshot: CommandPaletteFileIndexSnapshot,
+        queryIsEmpty: Bool,
+        recentsRanks: [String: Int]
     ) -> [CommandPaletteFilePathRanker.Candidate] {
-        snapshot.entries.map { entry in
+        if queryIsEmpty {
+            guard !recentsRanks.isEmpty else { return [] }
+            return snapshot.entries
+                .compactMap { entry -> (Int, CommandPaletteFileIndexSnapshot.Entry)? in
+                    guard let rank = recentsRanks[entry.relativePath] else { return nil }
+                    return (rank, entry)
+                }
+                .sorted { $0.0 < $1.0 }
+                .map { _, entry in
+                    CommandPaletteFilePathRanker.Candidate(
+                        id: "file:" + entry.relativePath,
+                        fileName: entry.fileName,
+                        relativePath: entry.relativePath,
+                        fileNameLower: entry.fileNameLower,
+                        relativePathLower: entry.relativePathLower
+                    )
+                }
+        }
+        return snapshot.entries.map { entry in
             CommandPaletteFilePathRanker.Candidate(
                 id: "file:" + entry.relativePath,
                 fileName: entry.fileName,
@@ -5023,23 +4994,43 @@ struct ContentView: View {
         }
     }
 
-    /// Runs the path-tuned ranker and maps the result back to the orchestrator's
-    /// resolved-match shape so the existing materialization + render pipeline works
-    /// without a separate code path.
-    static func commandPaletteFileSearchResolvedMatches(
-        candidates: [CommandPaletteFilePathRanker.Candidate],
-        query: String,
-        resultLimit: Int,
-        shouldCancel: () -> Bool = { false }
-    ) -> [CommandPaletteResolvedSearchMatch] {
-        CommandPaletteFilePathRanker.rank(
-            query: query,
-            candidates: candidates,
-            limit: resultLimit,
-            shouldCancel: shouldCancel
-        ).map { match in
-            CommandPaletteResolvedSearchMatch(
-                commandID: match.id,
+    /// Builds `[CommandPaletteSearchResult]` directly from the path ranker's matches,
+    /// constructing a `CommandPaletteCommand` (with its open-file closure) JIT for
+    /// each visible result. This avoids the per-keystroke cost of allocating tens of
+    /// thousands of command structs + closures up-front; only the ~48 top results
+    /// pay the allocation.
+    private static func commandPaletteFileSearchResults(
+        matches: [CommandPaletteFilePathRanker.Match],
+        rootPath: String,
+        kindLabel: String,
+        tabManagerRef: @escaping () -> TabManager?
+    ) -> [CommandPaletteSearchResult] {
+        matches.map { match in
+            let parentPath = (match.relativePath as NSString).deletingLastPathComponent
+            let absolutePath = rootPath.isEmpty
+                ? match.relativePath
+                : (rootPath as NSString).appendingPathComponent(match.relativePath)
+            let relativePath = match.relativePath
+            let command = CommandPaletteCommand(
+                id: match.id,
+                rank: 0,
+                title: match.fileName,
+                subtitle: parentPath,
+                shortcutHint: nil,
+                kindLabel: kindLabel,
+                keywords: parentPath.isEmpty ? [relativePath] : [relativePath, parentPath],
+                dismissOnRun: true,
+                action: {
+                    Self.runCommandPaletteFileOpen(
+                        absolutePath: absolutePath,
+                        relativePath: relativePath,
+                        rootPath: rootPath,
+                        workspace: tabManagerRef()?.selectedWorkspace
+                    )
+                }
+            )
+            return CommandPaletteSearchResult(
+                command: command,
                 score: match.score,
                 titleMatchIndices: match.fileNameMatchIndices
             )
@@ -5150,6 +5141,22 @@ struct ContentView: View {
             return
         }
 
+        if scope == .files {
+            // `.files` doesn't pre-build a CommandPaletteCommand per file — at typical
+            // workspace sizes that's tens of thousands of structs + closures per
+            // refresh, which is the dominant per-keystroke cost. The ranker reads
+            // straight from the indexer's snapshot, and we materialize commands JIT
+            // for only the visible matches below.
+            commandPaletteSearchCommandsByID = [:]
+            commandPaletteSearchCorpus = []
+            commandPaletteSearchCorpusByID = [:]
+            cachedCommandPaletteScope = scope
+            cachedCommandPaletteFingerprint = fingerprint
+            cancelCommandPaletteSearchIndexBuild()
+            commandPaletteNucleoSearchIndex = nil
+            return
+        }
+
         let entries = commandPaletteEntries(
             for: scope,
             includeSurfaces: includeSurfaces,
@@ -5174,18 +5181,11 @@ struct ContentView: View {
         )
         cachedCommandPaletteScope = scope
         cachedCommandPaletteFingerprint = fingerprint
-        if scope == .files {
-            // `.files` skips Nucleo entirely — the path-tuned substring ranker is
-            // faster at this scale and doesn't pay an index-build cost.
-            cancelCommandPaletteSearchIndexBuild()
-            commandPaletteNucleoSearchIndex = nil
-        } else {
-            scheduleCommandPaletteSearchIndexBuild(
-                entries: searchCorpus,
-                scope: scope,
-                fingerprint: fingerprint
-            )
-        }
+        scheduleCommandPaletteSearchIndexBuild(
+            entries: searchCorpus,
+            scope: scope,
+            fingerprint: fingerprint
+        )
     }
 
     private func cancelCommandPaletteSearch() {
@@ -5354,28 +5354,42 @@ struct ContentView: View {
         }
         cancelCommandPaletteSearch()
         let fileRankerCandidates: [CommandPaletteFilePathRanker.Candidate]
+        let fileSearchRootPath: String
+        let fileSearchKindLabel: String
         if scope == .files {
             fileRankerCandidates = Self.commandPaletteFileRankerCandidates(
-                snapshot: commandPaletteFileIndexer.currentSnapshot
+                snapshot: commandPaletteFileIndexer.currentSnapshot,
+                queryIsEmpty: queryIsEmpty,
+                recentsRanks: commandPaletteFileRecentsRanks(workspaceID: tabManager.selectedWorkspace?.id)
             )
+            fileSearchRootPath = commandPaletteFileIndexer.currentSnapshot.rootPath
+            fileSearchKindLabel = String(localized: "commandPalette.kind.file", defaultValue: "File")
         } else {
             fileRankerCandidates = []
+            fileSearchRootPath = ""
+            fileSearchKindLabel = ""
         }
         let fileVisibleResultLimit = Self.commandPaletteVisiblePreviewResultLimit
+        let fileTabManagerRef: () -> TabManager? = { [weak tabManager] in tabManager }
         if CommandPaletteSearchOrchestrator.shouldSynchronouslySeedResults(
             hasVisibleResultsForScope: commandPaletteVisibleResultsScope == scope,
             hasSearchIndex: searchIndex != nil || scope == .files,
             corpusCount: searchCorpus.count
         ) {
-            let matches: [CommandPaletteResolvedSearchMatch]
             if scope == .files {
-                matches = Self.commandPaletteFileSearchResolvedMatches(
-                    candidates: fileRankerCandidates,
+                let fileMatches = CommandPaletteFilePathRanker.rank(
                     query: matchingQuery,
-                    resultLimit: fileVisibleResultLimit
+                    candidates: fileRankerCandidates,
+                    limit: fileVisibleResultLimit
+                )
+                cachedCommandPaletteResults = Self.commandPaletteFileSearchResults(
+                    matches: fileMatches,
+                    rootPath: fileSearchRootPath,
+                    kindLabel: fileSearchKindLabel,
+                    tabManagerRef: fileTabManagerRef
                 )
             } else {
-                matches = CommandPaletteSearchOrchestrator.resolvedSearchMatches(
+                let matches = CommandPaletteSearchOrchestrator.resolvedSearchMatches(
                     searchIndex: searchIndex,
                     searchCorpus: searchCorpus,
                     searchCorpusByID: searchCorpusByID,
@@ -5385,11 +5399,11 @@ struct ContentView: View {
                     historyTimestamp: historyTimestamp,
                     additionalScoreBoost: additionalScoreBoost
                 )
+                cachedCommandPaletteResults = Self.commandPaletteMaterializedSearchResults(
+                    matches: matches,
+                    commandsByID: commandsByID
+                )
             }
-            cachedCommandPaletteResults = Self.commandPaletteMaterializedSearchResults(
-                matches: matches,
-                commandsByID: commandsByID
-            )
             let resultIDs = cachedCommandPaletteResults.map(\.id)
             let pendingActivationResolution = Self.commandPalettePendingActivationResolution(
                 commandPalettePendingActivation,
@@ -5487,15 +5501,18 @@ struct ContentView: View {
 
             guard !Task.isCancelled else { return }
 
+            let fileMatches: [CommandPaletteFilePathRanker.Match]
             let matches: [CommandPaletteResolvedSearchMatch]
             if scope == .files {
-                matches = Self.commandPaletteFileSearchResolvedMatches(
-                    candidates: fileRankerCandidates,
+                fileMatches = CommandPaletteFilePathRanker.rank(
                     query: matchingQuery,
-                    resultLimit: fileVisibleResultLimit,
+                    candidates: fileRankerCandidates,
+                    limit: fileVisibleResultLimit,
                     shouldCancel: { Task.isCancelled }
                 )
+                matches = []
             } else {
+                fileMatches = []
                 matches = CommandPaletteSearchOrchestrator.resolvedSearchMatches(
                     searchIndex: searchIndex,
                     searchCorpus: searchCorpus,
@@ -5526,10 +5543,19 @@ struct ContentView: View {
                     return
                 }
 
-                cachedCommandPaletteResults = Self.commandPaletteMaterializedSearchResults(
-                    matches: matches,
-                    commandsByID: commandPaletteSearchCommandsByID
-                )
+                if scope == .files {
+                    cachedCommandPaletteResults = Self.commandPaletteFileSearchResults(
+                        matches: fileMatches,
+                        rootPath: fileSearchRootPath,
+                        kindLabel: fileSearchKindLabel,
+                        tabManagerRef: fileTabManagerRef
+                    )
+                } else {
+                    cachedCommandPaletteResults = Self.commandPaletteMaterializedSearchResults(
+                        matches: matches,
+                        commandsByID: commandPaletteSearchCommandsByID
+                    )
+                }
                 let resultIDs = cachedCommandPaletteResults.map(\.id)
                 let pendingActivationResolution = Self.commandPalettePendingActivationResolution(
                     commandPalettePendingActivation,
