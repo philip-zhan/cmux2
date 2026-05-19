@@ -27,6 +27,7 @@ General app preferences from Settings > App.
 | `app.warnBeforeClosingTab` | boolean | `true` | Show a confirmation before closing a tab. |
 | `app.renameSelectsExistingName` | boolean | `true` | Select the current name when opening rename flows. |
 | `app.commandPaletteSearchesAllSurfaces` | boolean | `false` | Search every surface in the command palette switcher instead of only the active workspace. |
+| `app.commandPaletteFileSearchMode` | `"filesPrefixed"` \| `"switcherPrefixed"` | `"filesPrefixed"` | How the command palette routes queries to file search vs the workspace switcher. `filesPrefixed` (default): bare query → switcher, `@foo` → files. `switcherPrefixed` (VS Code parity): bare query → files, `@foo` → switcher. Commands always live behind `>`. Requires `fd` on PATH for file search. |
 
 ## terminal
 

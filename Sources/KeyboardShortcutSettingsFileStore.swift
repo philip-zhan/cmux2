@@ -447,6 +447,10 @@ final class CmuxSettingsFileStore {
         if let value = jsonBool(section["commandPaletteSearchesAllSurfaces"]) {
             snapshot.managedUserDefaults[CommandPaletteSwitcherSearchSettings.searchAllSurfacesKey] = .bool(value)
         }
+        if let raw = jsonString(section["commandPaletteFileSearchMode"]),
+           CommandPaletteFileSearchMode(rawValue: raw) != nil {
+            snapshot.managedUserDefaults[CommandPaletteFileSearchSettings.modeKey] = .string(raw)
+        }
     }
 
     private func parseNotificationsSection(

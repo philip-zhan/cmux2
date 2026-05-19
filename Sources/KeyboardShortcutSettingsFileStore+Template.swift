@@ -75,6 +75,7 @@ extension CmuxSettingsFileStore {
                     "warnBeforeClosingTab": CloseTabWarningSettings.defaultWarnBeforeClosingTab,
                     "renameSelectsExistingName": CommandPaletteRenameSelectionSettings.defaultSelectAllOnFocus,
                     "commandPaletteSearchesAllSurfaces": CommandPaletteSwitcherSearchSettings.defaultSearchAllSurfaces,
+                    "commandPaletteFileSearchMode": CommandPaletteFileSearchSettings.defaultMode.rawValue,
                 ],
             ],
             [

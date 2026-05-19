@@ -351,6 +351,28 @@ enum CommandPaletteSettingsToggleCommands {
                 defaultsKey: CommandPaletteSwitcherSearchSettings.searchAllSurfacesKey
             ),
             CommandPaletteSettingToggleDescriptor(
+                commandId: commandIdPrefix + "commandPaletteFileSearchVSCodeParity",
+                settingsKey: "app.commandPaletteFileSearchMode",
+                title: {
+                    String(
+                        localized: "settings.app.commandPaletteFileSearchVSCodeParity",
+                        defaultValue: "Command Palette ⌘P Searches Files (VS Code Style)"
+                    )
+                },
+                sectionTitle: app,
+                keywords: [
+                    "app.commandPaletteFileSearchMode",
+                    "command", "palette", "file", "files", "search", "vs code", "vscode", "cmd-p"
+                ],
+                isOn: { defaults in
+                    CommandPaletteFileSearchSettings.mode(defaults: defaults) == .switcherPrefixed
+                },
+                setOn: { newValue, defaults, _ in
+                    let mode: CommandPaletteFileSearchMode = newValue ? .switcherPrefixed : .filesPrefixed
+                    defaults.set(mode.rawValue, forKey: CommandPaletteFileSearchSettings.modeKey)
+                }
+            ),
+            CommandPaletteSettingToggleDescriptor(
                 commandId: commandIdPrefix + "terminalShowScrollBar",
                 settingsKey: "terminal.showScrollBar",
                 title: {
