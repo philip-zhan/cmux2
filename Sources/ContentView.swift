@@ -1134,6 +1134,7 @@ struct ContentView: View {
     @State private var commandPaletteResultsRevision: UInt64 = 0
     @State private var commandPaletteUsageHistoryByCommandId: [String: CommandPaletteUsageEntry] = [:]
     @StateObject private var commandPaletteFileIndexer = CommandPaletteFileIndexer.shared
+    @StateObject private var commandPaletteFileRecentsStore = CommandPaletteFileRecentsStore.shared
     @State private var isFeedbackComposerPresented = false
     @AppStorage(CommandPaletteRenameSelectionSettings.selectAllOnFocusKey)
     private var commandPaletteRenameSelectAllOnFocus = CommandPaletteRenameSelectionSettings.defaultSelectAllOnFocus
@@ -4953,7 +4954,13 @@ struct ContentView: View {
     ) -> [CommandPaletteCommand] {
         let kindLabel = String(localized: "commandPalette.kind.file", defaultValue: "File")
         let rootPath = snapshot.rootPath
-        return snapshot.entries.enumerated().map { index, entry in
+        let recentsRanks = commandPaletteFileRecentsRanks(workspaceID: tabManager.selectedWorkspace?.id)
+        let entries = Self.commandPaletteFileEntriesToShow(
+            snapshotEntries: snapshot.entries,
+            queryIsEmpty: commandPaletteListScope == .files && commandPaletteQueryForMatching.isEmpty,
+            recentsRanks: recentsRanks
+        )
+        return entries.enumerated().map { index, entry in
             // Filename in `title` so basename matches highlight cleanly; relative
             // directory goes in `subtitle` (and feeds the fuzzy corpus too).
             let parentPath = (entry.relativePath as NSString).deletingLastPathComponent
@@ -4972,11 +4979,38 @@ struct ContentView: View {
                 action: { [weak tabManager] in
                     Self.runCommandPaletteFileOpen(
                         absolutePath: absolutePath,
+                        relativePath: entry.relativePath,
+                        rootPath: rootPath,
                         workspace: tabManager?.selectedWorkspace
                     )
                 }
             )
         }
+    }
+
+    /// When the user opens the palette with no query in `.files` scope, only show
+    /// recently-opened files (sorted by recency). Once they start typing, return the
+    /// full fd snapshot so the fuzzy matcher can search everything.
+    static func commandPaletteFileEntriesToShow(
+        snapshotEntries: [CommandPaletteFileIndexSnapshot.Entry],
+        queryIsEmpty: Bool,
+        recentsRanks: [String: Int]
+    ) -> [CommandPaletteFileIndexSnapshot.Entry] {
+        guard queryIsEmpty else { return snapshotEntries }
+        guard !recentsRanks.isEmpty else { return [] }
+        return snapshotEntries
+            .compactMap { entry -> (Int, CommandPaletteFileIndexSnapshot.Entry)? in
+                guard let rank = recentsRanks[entry.relativePath] else { return nil }
+                return (rank, entry)
+            }
+            .sorted { $0.0 < $1.0 }
+            .map(\.1)
+    }
+
+    private func commandPaletteFileRecentsRanks(workspaceID: UUID?) -> [String: Int] {
+        guard let workspaceID else { return [:] }
+        let recents = commandPaletteFileRecentsStore.recents(workspaceID: workspaceID)
+        return Dictionary(uniqueKeysWithValues: recents.enumerated().map { ($1.relativePath, $0) })
     }
 
     /// Routes a picked file from the `.files` scope into either a `FilePreviewPanel`
@@ -4985,9 +5019,19 @@ struct ContentView: View {
     /// Finder is always better than dropping the click silently.
     private static func runCommandPaletteFileOpen(
         absolutePath: String,
+        relativePath: String,
+        rootPath: String,
         workspace: Workspace?
     ) {
         let url = URL(fileURLWithPath: absolutePath)
+        if let workspace {
+            CommandPaletteFileRecentsStore.shared.recordOpen(
+                workspaceID: workspace.id,
+                rootPath: rootPath,
+                absolutePath: absolutePath
+            )
+        }
+        _ = relativePath  // reserved for future recents-keyed-by-relative lookups
         guard FileManager.default.fileExists(atPath: absolutePath) else {
             NSWorkspace.shared.activateFileViewerSelecting([url])
             return
@@ -5469,6 +5513,11 @@ struct ContentView: View {
         hasher.combine(commandPaletteCurrentFileSearchRoot())
         hasher.combine(commandPaletteFileIndexer.currentSnapshot.generation)
         hasher.combine(commandPaletteFileIndexer.currentSnapshot.entries.count)
+        // Empty-query branch reads from recents; mix the recents revision and the
+        // empty-query bit in so toggling between "no query" and "typed query" rebuilds
+        // the corpus too.
+        hasher.combine(commandPaletteFileRecentsStore.revision)
+        hasher.combine(commandPaletteQueryForMatching.isEmpty)
         return hasher.finalize()
     }
 
