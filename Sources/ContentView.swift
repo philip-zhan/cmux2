@@ -1113,6 +1113,7 @@ struct ContentView: View {
     @State private var cachedCommandPaletteFingerprint: Int?
     @State private var commandPalettePendingDismissFocusTarget: CommandPaletteRestoreFocusTarget?
     @State private var commandPaletteRestoreTimeoutWorkItem: DispatchWorkItem?
+    @State private var isAttemptingCommandPaletteFocusRestore = false
     @State private var commandPalettePendingTextSelectionBehavior: CommandPaletteTextSelectionBehavior?
     @State private var commandPaletteSearchTask: Task<Void, Never>?
     @State private var commandPaletteSearchRequestID: UInt64 = 0
@@ -9023,6 +9024,13 @@ struct ContentView: View {
     private func attemptCommandPaletteFocusRestoreIfNeeded() {
         guard !isCommandPalettePresented else { return }
         guard let target = commandPalettePendingDismissFocusTarget else { return }
+        // `focusTab` below synchronously posts focus notifications (e.g.
+        // `.ghosttyDidFocusSurface`) that re-enter this method. Without this
+        // guard the re-entrant call calls `focusTab` again, spinning the main
+        // thread forever and starving the restore-timeout work item.
+        guard !isAttemptingCommandPaletteFocusRestore else { return }
+        isAttemptingCommandPaletteFocusRestore = true
+        defer { isAttemptingCommandPaletteFocusRestore = false }
         guard tabManager.tabs.contains(where: { $0.id == target.workspaceId }) else {
             commandPalettePendingDismissFocusTarget = nil
             commandPaletteRestoreTimeoutWorkItem?.cancel()
