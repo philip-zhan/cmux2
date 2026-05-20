@@ -35,7 +35,12 @@ TAG="$1"
 REPO="${CMUX_FORK_REPO:-philip-zhan/cmux}"
 SIGN_IDENTITY="${CMUX_FORK_SIGN_IDENTITY:-Developer ID Application: Draft Technologies Ltd (D22PZDCXY5)}"
 ENTITLEMENTS="cmux.fork.entitlements"
-APP_PATH="build-fork/Build/Products/Release/cmux.app"
+# The fork build ships as "cmux2" with its own bundle identifier so it can be
+# installed and run alongside a stock "cmux" without sharing its control socket.
+CMUX2_APP_NAME="cmux2"
+CMUX2_BUNDLE_ID="com.cmuxterm.cmux2"
+BUILT_APP_PATH="build-fork/Build/Products/Release/cmux.app"
+APP_PATH="build-fork/Build/Products/Release/${CMUX2_APP_NAME}.app"
 GHOSTTYKIT_CRASH_REPORT_SUBDIR="cmux/crash"
 
 # --- Pre-flight ---
@@ -63,6 +68,15 @@ xcodebuild -scheme cmux -configuration Release -derivedDataPath build-fork \
   ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
   CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -5
 echo "Build succeeded"
+
+# --- Rebrand as cmux2 (installs alongside a stock cmux) ---
+echo "Rebranding app to ${CMUX2_APP_NAME} (${CMUX2_BUNDLE_ID})..."
+rm -rf "$APP_PATH"
+mv "$BUILT_APP_PATH" "$APP_PATH"
+REBRAND_PLIST="$APP_PATH/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName $CMUX2_APP_NAME" "$REBRAND_PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $CMUX2_APP_NAME" "$REBRAND_PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $CMUX2_BUNDLE_ID" "$REBRAND_PLIST"
 
 # --- Inject Sparkle keys + fork feed URL ---
 echo "Injecting Sparkle keys..."

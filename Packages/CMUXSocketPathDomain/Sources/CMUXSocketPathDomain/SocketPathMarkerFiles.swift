@@ -5,6 +5,8 @@ public enum SocketPathVariant: Equatable {
     case nightly(slug: String?)
     case staging(slug: String?)
     case dev(slug: String?)
+    /// The personal-fork release build (`cmux2`), installed alongside a stock `cmux`.
+    case cmux2
 
     public var appSupportFileName: String {
         switch self {
@@ -25,6 +27,8 @@ public enum SocketPathVariant: Equatable {
                 return "dev-\(slug)-last-socket-path"
             }
             return "dev-last-socket-path"
+        case .cmux2:
+            return "cmux2-last-socket-path"
         }
     }
 
@@ -47,6 +51,8 @@ public enum SocketPathVariant: Equatable {
                 return "/tmp/cmux-dev-\(slug)-last-socket-path"
             }
             return "/tmp/cmux-dev-last-socket-path"
+        case .cmux2:
+            return "/tmp/cmux2-last-socket-path"
         }
     }
 
@@ -65,6 +71,8 @@ public enum SocketPathMarkerFiles {
     public static let defaultDebugSocketPath = "/tmp/cmux-debug.sock"
     public static let defaultNightlySocketPath = "/tmp/cmux-nightly.sock"
     public static let defaultStagingSocketPath = "/tmp/cmux-staging.sock"
+    public static let cmux2BundleIdentifier = "com.cmuxterm.cmux2"
+    public static let defaultCmux2SocketPath = "/tmp/cmux2.sock"
 
     public static func appSupportFileURL(
         fileName: String = stableAppSupportFileName,
@@ -125,6 +133,9 @@ public enum SocketPathMarkerFiles {
         if bundleId.hasPrefix("\(baseDebugBundleIdentifier).") {
             return .dev(slug: bundleSuffixSlug(bundleId, prefix: "\(baseDebugBundleIdentifier)."))
         }
+        if bundleId == cmux2BundleIdentifier {
+            return .cmux2
+        }
         return .stable
     }
 
@@ -136,7 +147,8 @@ public enum SocketPathMarkerFiles {
         baseDebugBundleIdentifier: String = defaultBaseDebugBundleIdentifier,
         debugSocketPath: String = defaultDebugSocketPath,
         nightlySocketPath: String = defaultNightlySocketPath,
-        stagingSocketPath: String = defaultStagingSocketPath
+        stagingSocketPath: String = defaultStagingSocketPath,
+        cmux2SocketPath: String = defaultCmux2SocketPath
     ) -> String {
         switch variant(
             bundleIdentifier: bundleIdentifier,
@@ -160,6 +172,8 @@ public enum SocketPathMarkerFiles {
                 return "/tmp/cmux-debug-\(slug).sock"
             }
             return debugSocketPath
+        case .cmux2:
+            return cmux2SocketPath
         }
     }
 

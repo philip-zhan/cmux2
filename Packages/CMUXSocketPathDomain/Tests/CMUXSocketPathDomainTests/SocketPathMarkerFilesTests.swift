@@ -22,6 +22,10 @@ import Testing
         bundleIdentifier: "com.cmuxterm.app.debug",
         environment: ["CMUX_TAG": "café"]
     ) == .dev(slug: "caf"))
+    #expect(SocketPathMarkerFiles.variant(
+        bundleIdentifier: "com.cmuxterm.cmux2",
+        environment: [:]
+    ) == .cmux2)
 }
 
 @Test func defaultSocketPathsStayVariantScoped() {
@@ -49,4 +53,21 @@ import Testing
         isDebugBuild: false,
         stableSocketPath: "/stable/cmux.sock"
     ) == "/tmp/cmux-debug-issue-3542.sock")
+    #expect(SocketPathMarkerFiles.defaultSocketPath(
+        bundleIdentifier: "com.cmuxterm.cmux2",
+        environment: [:],
+        isDebugBuild: false,
+        stableSocketPath: "/stable/cmux.sock"
+    ) == "/tmp/cmux2.sock")
+}
+
+@Test func cmux2VariantUsesIsolatedMarkerFiles() {
+    let variant = SocketPathMarkerFiles.variant(
+        bundleIdentifier: SocketPathMarkerFiles.cmux2BundleIdentifier,
+        environment: [:]
+    )
+    #expect(variant == .cmux2)
+    #expect(variant.tmpPath == "/tmp/cmux2-last-socket-path")
+    #expect(variant.appSupportFileName == "cmux2-last-socket-path")
+    #expect(variant.appSupportFileName != SocketPathVariant.stable.appSupportFileName)
 }

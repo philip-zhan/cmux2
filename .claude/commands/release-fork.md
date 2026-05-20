@@ -14,7 +14,7 @@ the fork.
 ### 1. Determine the new version number
 
 - Get the current version from `cmux.xcodeproj/project.pbxproj` (look for `MARKETING_VERSION`)
-- Bump the minor version unless the user specifies otherwise (e.g., 0.54.0 → 0.55.0)
+- Bump the patch version unless the user specifies otherwise (e.g., 0.54.0 → 0.54.1)
 
 ### 2. Gather changes since the last release
 
@@ -33,7 +33,7 @@ the fork.
 
 ### 4. Bump the version
 
-- Run: `./scripts/bump-version.sh` (bumps minor by default)
+- Run: `./scripts/bump-version.sh patch` (patch bump by default)
 - This updates both `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` (build number).
   The build number is auto-incremented and is required for Sparkle auto-update to work.
 
