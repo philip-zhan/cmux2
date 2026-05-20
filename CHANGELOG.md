@@ -2,6 +2,15 @@
 
 All notable changes to cmux are documented here.
 
+## [1.65.0] - 2026-05-19
+
+### Changed
+- Use the CodeMirror viewer for the markdown panel's TextEdit mode
+- Default command palette file search to files without a prefix
+
+### Fixed
+- Fix settings window crash on open
+
 ## [0.64.7] - 2026-05-19
 
 ### Added
