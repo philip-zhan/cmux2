@@ -77,10 +77,10 @@ final class MarkdownPanelTests: XCTestCase {
 
         let panel = try XCTUnwrap(workspace.markdownPanel(for: openedPanelId))
         XCTAssertEqual(panel.filePath, fileURL.path)
-        XCTAssertEqual(panel.displayMode, .preview)
+        XCTAssertEqual(panel.displayMode, .text)
         XCTAssertNil(workspace.filePreviewPanel(for: openedPanelId))
         XCTAssertEqual(payload["panel_type"] as? String, PanelType.markdown.rawValue)
-        XCTAssertEqual(payload["display_mode"] as? String, MarkdownPanelDisplayMode.preview.rawValue)
+        XCTAssertEqual(payload["display_mode"] as? String, MarkdownPanelDisplayMode.text.rawValue)
     }
 
     func testExternalFileOpenRoutesMarkdownFilesToPreviewMarkdownPanel() throws {
@@ -134,7 +134,7 @@ final class MarkdownPanelTests: XCTestCase {
         let originalMarkdownPanel = try XCTUnwrap(markdownPanels.first)
         let originalMarkdownPanelID = ObjectIdentifier(originalMarkdownPanel)
         XCTAssertEqual(originalMarkdownPanel.filePath, fileURL.path)
-        XCTAssertEqual(originalMarkdownPanel.displayMode, .preview)
+        XCTAssertEqual(originalMarkdownPanel.displayMode, .text)
         XCTAssertTrue(workspace.panels.values.compactMap { $0 as? FilePreviewPanel }.isEmpty)
 
         XCTAssertTrue(

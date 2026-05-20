@@ -34,8 +34,8 @@ final class MarkdownPanel: Panel, ObservableObject, FilePreviewTextEditingPanel,
     /// Whether TextEdit mode is saving to disk.
     @Published private(set) var isSaving: Bool = false
 
-    /// The current view mode for this markdown panel. New panels default to preview.
-    @Published private(set) var displayMode: MarkdownPanelDisplayMode = .preview
+    /// The current view mode for this markdown panel. New panels default to text (edit source).
+    @Published private(set) var displayMode: MarkdownPanelDisplayMode = .text
 
     /// Title shown in the tab bar (filename).
     @Published private(set) var displayTitle: String = ""
