@@ -25,7 +25,34 @@
   <a href="https://www.youtube.com/watch?v=i-WxO5YUTOs">▶ Demo video</a> · <a href="https://cmux.com/blog/zen-of-cmux">The Zen of cmux</a>
 </p>
 
+> **This is a fork.** This repository ([`philip-zhan/cmux2`](https://github.com/philip-zhan/cmux2))
+> is a fork of the original [cmux](https://github.com/manaflow-ai/cmux) by Manaflow. It tracks
+> upstream and layers on extra features — most notably a **built-in editor** (see below). It ships
+> as a separate app with its own bundle ID and control socket, so it runs alongside the original.
+
 ## Features
+
+### Fork additions
+
+<table>
+<tr>
+<td width="40%" valign="middle">
+<h3>Built-in editor</h3>
+Open files directly in a native editor pane without leaving cmux. Code viewer with syntax highlighting and VS Code-like floating search, markdown editing, plus image and PDF preview. A file explorer lives in the right sidebar, and ⌘P does VS Code-style quick file open.
+</td>
+<td width="60%" valign="middle">
+<ul>
+<li>Syntax-highlighted code viewer with git diff support</li>
+<li>Markdown panels that default to edit-source mode</li>
+<li>Image and PDF preview panes</li>
+<li>Right sidebar file explorer (⌥⌘B to toggle)</li>
+<li>⌘P quick file open from the command palette</li>
+</ul>
+</td>
+</tr>
+</table>
+
+### From upstream cmux
 
 <table>
 <tr>

@@ -930,6 +930,18 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
     private weak var textView: NSTextView?
     private let focusCoordinator: FilePreviewFocusCoordinator
 
+    // MARK: - File watching
+    //
+    // The text-mode editor reloads when the file changes on disk so external
+    // edits (other tools, agents, atomic saves) don't leave stale content.
+    // nonisolated(unsafe) because deinit is not guaranteed to run on the main
+    // actor, but DispatchSource.cancel() is thread-safe.
+    private nonisolated(unsafe) var fileWatchSource: DispatchSourceFileSystemObject?
+    private nonisolated(unsafe) var directoryWatchSource: DispatchSourceFileSystemObject?
+    private var directoryWatchPath: String?
+    private var isClosed = false
+    private let watchQueue = DispatchQueue(label: "com.cmux.file-preview-watch", qos: .utility)
+
     var fileURL: URL {
         URL(fileURLWithPath: filePath)
     }
@@ -960,6 +972,8 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
     }
 
     func close() {
+        isClosed = true
+        stopWatching()
         nativeViewSessions.closeAll()
         textView = nil
         focusCoordinator.unregisterAll()
@@ -1071,9 +1085,11 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
         if previewMode == .text {
             evaluateTextEnginePreference()
             loadTextContent(replacingDirtyContent: false)
+            startFileWatcher()
         } else {
             usesCodeMirrorEngine = false
             isFileUnavailable = !FileManager.default.fileExists(atPath: filePath)
+            stopWatching()
         }
     }
 
@@ -1203,6 +1219,160 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
         case .quickLook:
             return .quickLook
         }
+    }
+
+    // MARK: - File watcher via DispatchSource
+
+    /// Reload the text-mode editor after the watched file changed on disk.
+    /// Unsaved in-editor edits win: a dirty buffer is left untouched so an
+    /// external write never silently discards the user's work (they resolve
+    /// the conflict explicitly via Revert/Save).
+    private func reloadFromWatchedFileChange() {
+        guard !isClosed, previewMode == .text, !isDirty else { return }
+        loadTextContent(replacingDirtyContent: false)
+    }
+
+    private func startFileWatcher() {
+        stopFileWatcher()
+
+        let fd = open(filePath, O_EVTONLY)
+        guard fd >= 0 else {
+            startDirectoryWatcher()
+            return
+        }
+
+        stopDirectoryWatcher()
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .delete, .rename, .extend],
+            queue: watchQueue
+        )
+
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            let flags = source.data
+            DispatchQueue.main.async {
+                guard !self.isClosed else { return }
+                if flags.contains(.delete) || flags.contains(.rename) {
+                    // Deleted or renamed: the old descriptor points at a stale
+                    // inode (atomic-save case), so always reattach the watcher.
+                    self.stopFileWatcher()
+                    self.reloadFromWatchedFileChange()
+                    self.startFileWatcher()
+                } else {
+                    self.reloadFromWatchedFileChange()
+                }
+            }
+        }
+
+        source.setCancelHandler {
+            Darwin.close(fd)
+        }
+
+        source.resume()
+        fileWatchSource = source
+    }
+
+    private func startDirectoryWatcher() {
+        for directoryPath in existingDirectoryCandidatesForWatcher() {
+            if directoryWatchPath == directoryPath, directoryWatchSource != nil {
+                return
+            }
+
+            let fd = open(directoryPath, O_EVTONLY)
+            guard fd >= 0 else { continue }
+
+            stopDirectoryWatcher()
+            installDirectoryWatcher(fileDescriptor: fd, directoryPath: directoryPath)
+            return
+        }
+    }
+
+    private func installDirectoryWatcher(fileDescriptor fd: Int32, directoryPath: String) {
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .delete, .rename, .extend],
+            queue: watchQueue
+        )
+
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            let flags = source.data
+            DispatchQueue.main.async {
+                guard !self.isClosed else { return }
+                if flags.contains(.delete) || flags.contains(.rename) {
+                    self.stopDirectoryWatcher()
+                }
+                self.reloadFromWatchedFileChange()
+                // Reattach as close to the target file as possible.
+                // `startFileWatcher` falls back to a directory watcher when the
+                // file still doesn't exist.
+                self.startFileWatcher()
+            }
+        }
+
+        source.setCancelHandler {
+            Darwin.close(fd)
+        }
+
+        source.resume()
+        directoryWatchSource = source
+        directoryWatchPath = directoryPath
+    }
+
+    private func existingDirectoryCandidatesForWatcher() -> [String] {
+        let fileManager = FileManager.default
+        var current = (filePath as NSString).deletingLastPathComponent
+        if current.isEmpty {
+            current = fileManager.currentDirectoryPath
+        }
+
+        var candidates: [String] = []
+        var seen = Set<String>()
+        while !current.isEmpty {
+            let standardized = (current as NSString).standardizingPath
+            guard seen.insert(standardized).inserted else { break }
+
+            var isDirectory: ObjCBool = false
+            if fileManager.fileExists(atPath: standardized, isDirectory: &isDirectory),
+               isDirectory.boolValue {
+                candidates.append(standardized)
+            }
+
+            let parent = (standardized as NSString).deletingLastPathComponent
+            if parent == standardized || parent.isEmpty {
+                break
+            }
+            current = parent
+        }
+        return candidates
+    }
+
+    private func stopFileWatcher() {
+        if let source = fileWatchSource {
+            source.cancel()
+            fileWatchSource = nil
+        }
+    }
+
+    private func stopDirectoryWatcher() {
+        if let source = directoryWatchSource {
+            source.cancel()
+            directoryWatchSource = nil
+        }
+        directoryWatchPath = nil
+    }
+
+    private func stopWatching() {
+        stopFileWatcher()
+        stopDirectoryWatcher()
+    }
+
+    deinit {
+        // DispatchSource cancel is safe from any thread.
+        fileWatchSource?.cancel()
+        directoryWatchSource?.cancel()
     }
 }
 
