@@ -79,7 +79,7 @@ final class MinimalModeSidebarControlActionView: NSView {
 
     override init(frame frameRect: NSRect) {
         var buttons: [MinimalModeSidebarControlActionSlot: MinimalModeSidebarControlButton] = [:]
-        for slot in [MinimalModeSidebarControlActionSlot.toggleSidebar, .toggleRightSidebar, .showNotifications, .newTab] {
+        for slot in [MinimalModeSidebarControlActionSlot.toggleSidebar, .showNotifications, .newTab, .toggleRightSidebar] {
             buttons[slot] = Self.makeButton(for: slot)
         }
         self.buttons = buttons
@@ -97,7 +97,7 @@ final class MinimalModeSidebarControlActionView: NSView {
 
     required init?(coder: NSCoder) {
         var buttons: [MinimalModeSidebarControlActionSlot: MinimalModeSidebarControlButton] = [:]
-        for slot in [MinimalModeSidebarControlActionSlot.toggleSidebar, .toggleRightSidebar, .showNotifications, .newTab] {
+        for slot in [MinimalModeSidebarControlActionSlot.toggleSidebar, .showNotifications, .newTab, .toggleRightSidebar] {
             buttons[slot] = Self.makeButton(for: slot)
         }
         self.buttons = buttons
@@ -139,7 +139,7 @@ final class MinimalModeSidebarControlActionView: NSView {
 
     override func accessibilityChildren() -> [Any]? {
         guard isRevealed || !requiresRevealedState else { return [] }
-        return [MinimalModeSidebarControlActionSlot.toggleSidebar, .toggleRightSidebar, .showNotifications, .newTab].compactMap { buttons[$0] }
+        return [MinimalModeSidebarControlActionSlot.toggleSidebar, .showNotifications, .newTab, .toggleRightSidebar].compactMap { buttons[$0] }
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {

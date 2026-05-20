@@ -10039,26 +10039,33 @@ struct VerticalTabsSidebar: View {
                 }
                 .overlay(alignment: .topLeading) {
                     if isMinimalMode {
-                        HiddenTitlebarSidebarControlsView(
-                            notificationStore: notificationStore,
-                            onToggleSidebar: onToggleSidebar,
-                            onToggleRightSidebar: onToggleRightSidebar,
-                            onToggleNotifications: { anchorView in
-                                AppDelegate.shared?.toggleNotificationsPopover(
-                                    animated: true,
-                                    anchorView: anchorView
+                        // Clip to the sidebar width so the controls row never
+                        // spills past the sidebar's trailing edge (and over the
+                        // divider / terminal) when the sidebar is narrow.
+                        GeometryReader { geo in
+                            HiddenTitlebarSidebarControlsView(
+                                notificationStore: notificationStore,
+                                onToggleSidebar: onToggleSidebar,
+                                onToggleRightSidebar: onToggleRightSidebar,
+                                onToggleNotifications: { anchorView in
+                                    AppDelegate.shared?.toggleNotificationsPopover(
+                                        animated: true,
+                                        anchorView: anchorView
+                                    )
+                                },
+                                onNewTab: onNewTab
+                            )
+                                .padding(
+                                    .leading,
+                                    MinimalModeTitlebarDebugSettings.leftControlsLeadingInset()
                                 )
-                            },
-                            onNewTab: onNewTab
-                        )
-                            .padding(
-                                .leading,
-                                MinimalModeTitlebarDebugSettings.leftControlsLeadingInset()
-                            )
-                            .padding(
-                                .top,
-                                MinimalModeTitlebarDebugSettings.leftControlsTopInset()
-                            )
+                                .padding(
+                                    .top,
+                                    MinimalModeTitlebarDebugSettings.leftControlsTopInset()
+                                )
+                                .frame(width: geo.size.width, alignment: .topLeading)
+                                .clipped()
+                        }
                     }
                 }
                 .background(Color.clear)

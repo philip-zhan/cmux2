@@ -35,7 +35,7 @@ enum TitlebarControlsStyle: Int, CaseIterable, Identifiable {
         switch self {
         case .classic:
             return TitlebarControlsStyleConfig(
-                spacing: 10,
+                spacing: 7,
                 iconSize: 15,
                 buttonSize: 24,
                 badgeSize: 14,
@@ -48,7 +48,7 @@ enum TitlebarControlsStyle: Int, CaseIterable, Identifiable {
             )
         case .compact:
             return TitlebarControlsStyleConfig(
-                spacing: 6,
+                spacing: 5,
                 iconSize: 13,
                 buttonSize: 20,
                 badgeSize: 12,
@@ -61,7 +61,7 @@ enum TitlebarControlsStyle: Int, CaseIterable, Identifiable {
             )
         case .roomy:
             return TitlebarControlsStyleConfig(
-                spacing: 14,
+                spacing: 10,
                 iconSize: 16,
                 buttonSize: 28,
                 badgeSize: 16,
@@ -74,7 +74,7 @@ enum TitlebarControlsStyle: Int, CaseIterable, Identifiable {
             )
         case .pillGroup:
             return TitlebarControlsStyleConfig(
-                spacing: 8,
+                spacing: 6,
                 iconSize: 14,
                 buttonSize: 24,
                 badgeSize: 14,
@@ -87,7 +87,7 @@ enum TitlebarControlsStyle: Int, CaseIterable, Identifiable {
             )
         case .softButtons:
             return TitlebarControlsStyleConfig(
-                spacing: 8,
+                spacing: 6,
                 iconSize: 15,
                 buttonSize: 26,
                 badgeSize: 14,
@@ -447,9 +447,9 @@ struct TitlebarControlsView: View {
 
     private enum HintSlot: Int, CaseIterable {
         case toggleSidebar
-        case toggleRightSidebar
         case showNotifications
         case newTab
+        case toggleRightSidebar
 
         var action: KeyboardShortcutSettings.Action {
             switch self {
@@ -568,21 +568,6 @@ struct TitlebarControlsView: View {
             TitlebarControlButton(
                 config: config,
                 foregroundColor: foregroundColor,
-                accessibilityIdentifier: "titlebarControl.toggleRightSidebar",
-                accessibilityLabel: String(localized: "titlebar.rightSidebar.accessibilityLabel", defaultValue: "Toggle Right Sidebar"),
-                action: {
-                #if DEBUG
-                cmuxDebugLog("titlebar.toggleRightSidebar")
-                #endif
-                onToggleRightSidebar()
-            }) {
-                iconLabel(systemName: "sidebar.right", config: config, foregroundColor: foregroundColor)
-            }
-            .safeHelp(KeyboardShortcutSettings.Action.toggleRightSidebar.tooltip(String(localized: "titlebar.rightSidebar.tooltip", defaultValue: "Show or hide the right sidebar")))
-
-            TitlebarControlButton(
-                config: config,
-                foregroundColor: foregroundColor,
                 accessibilityIdentifier: "titlebarControl.showNotifications",
                 accessibilityLabel: String(localized: "titlebar.notifications.accessibilityLabel", defaultValue: "Notifications"),
                 action: {
@@ -627,6 +612,21 @@ struct TitlebarControlsView: View {
                 iconLabel(systemName: "plus", config: config, foregroundColor: foregroundColor)
             }
             .safeHelp(KeyboardShortcutSettings.Action.newTab.tooltip(String(localized: "titlebar.newWorkspace.tooltip", defaultValue: "New workspace")))
+
+            TitlebarControlButton(
+                config: config,
+                foregroundColor: foregroundColor,
+                accessibilityIdentifier: "titlebarControl.toggleRightSidebar",
+                accessibilityLabel: String(localized: "titlebar.rightSidebar.accessibilityLabel", defaultValue: "Toggle Right Sidebar"),
+                action: {
+                #if DEBUG
+                cmuxDebugLog("titlebar.toggleRightSidebar")
+                #endif
+                onToggleRightSidebar()
+            }) {
+                iconLabel(systemName: "sidebar.right", config: config, foregroundColor: foregroundColor)
+            }
+            .safeHelp(KeyboardShortcutSettings.Action.toggleRightSidebar.tooltip(String(localized: "titlebar.rightSidebar.tooltip", defaultValue: "Show or hide the right sidebar")))
 
         }
 
