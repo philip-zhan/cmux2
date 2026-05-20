@@ -147,6 +147,102 @@ const contentChangeListener = EditorView.updateListener.of((u) => {
   if (u.docChanged) scheduleContentChange(u.view);
 });
 
+// Floating search widget styled after VS Code's find box: a rounded,
+// shadowed panel pinned to the top-right corner that overlays the editor
+// instead of docking and pushing content down. Colors are driven by CSS
+// variables set in `setPanelVars` so the widget tracks the active theme.
+function searchPanelTheme(): Extension {
+  return EditorView.theme({
+    ".cm-panels.cm-panels-top": {
+      position: "absolute",
+      top: "8px",
+      right: "16px",
+      left: "auto",
+      width: "auto",
+      maxWidth: "calc(100% - 24px)",
+      backgroundColor: "transparent",
+      border: "none",
+      zIndex: "20",
+    },
+    ".cm-panels": { color: "var(--cmux-panel-fg)" },
+    ".cm-search": {
+      display: "flex",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: "4px",
+      padding: "6px 26px 6px 8px",
+      borderRadius: "8px",
+      backgroundColor: "var(--cmux-panel-bg)",
+      border: "1px solid var(--cmux-panel-border)",
+      boxShadow: "0 6px 22px rgba(0, 0, 0, 0.34)",
+      fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif",
+      fontSize: "12px",
+    },
+    ".cm-search label": {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "3px",
+      margin: "0",
+      padding: "2px 4px",
+      borderRadius: "4px",
+      fontSize: "11px",
+      opacity: "0.85",
+      userSelect: "none",
+    },
+    ".cm-search label:hover": { backgroundColor: "var(--cmux-panel-hover)" },
+    ".cm-search input, .cm-search button": { margin: "0" },
+    ".cm-search input.cm-textfield": {
+      backgroundColor: "var(--cmux-panel-input-bg)",
+      color: "var(--cmux-panel-fg)",
+      border: "1px solid var(--cmux-panel-border)",
+      borderRadius: "4px",
+      padding: "3px 6px",
+      fontSize: "12px",
+      outline: "none",
+    },
+    ".cm-search input.cm-textfield:focus-visible": {
+      borderColor: "var(--cmux-panel-accent)",
+      boxShadow: "0 0 0 1px var(--cmux-panel-accent)",
+    },
+    ".cm-search .cm-button": {
+      backgroundColor: "transparent",
+      backgroundImage: "none",
+      color: "var(--cmux-panel-fg)",
+      border: "1px solid transparent",
+      borderRadius: "4px",
+      padding: "3px 8px",
+      fontSize: "11px",
+      cursor: "pointer",
+    },
+    ".cm-search .cm-button:hover": {
+      backgroundColor: "var(--cmux-panel-hover)",
+    },
+    ".cm-search .cm-button:active": {
+      backgroundColor: "var(--cmux-panel-active)",
+    },
+    ".cm-search button[name=close]": {
+      position: "absolute",
+      top: "4px",
+      right: "6px",
+      width: "18px",
+      height: "18px",
+      padding: "0",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: "4px",
+      fontSize: "16px",
+      lineHeight: "1",
+      color: "var(--cmux-panel-fg)",
+      backgroundColor: "transparent",
+      cursor: "pointer",
+    },
+    ".cm-search button[name=close]:hover": {
+      backgroundColor: "var(--cmux-panel-hover)",
+    },
+  });
+}
+
 function baseExtensions(): Extension[] {
   return [
     lineNumbers(),
@@ -156,6 +252,7 @@ function baseExtensions(): Extension[] {
     EditorState.allowMultipleSelections.of(true),
     history(),
     search({ top: true }),
+    searchPanelTheme(),
     // Save chord is intercepted on the Swift side so it can honor the user's
     // KeyboardShortcutSettings.saveFilePreview binding (which may be a chord
     // like ⌘K ⌘S). The bridge still exposes a `requestSave` action for any
@@ -234,6 +331,32 @@ function paletteTheme(palette: ThemePalette): Extension {
   );
 }
 
+// Drive the floating search widget's colors. The widget styling in
+// `searchPanelTheme` is static, so theme changes flow through CSS variables
+// set here instead of reconfiguring a compartment.
+function setPanelVars(isDark: boolean, palette?: ThemePalette) {
+  const root = document.documentElement.style;
+  root.setProperty("--cmux-panel-bg", palette?.background ?? (isDark ? "#252526" : "#ffffff"));
+  root.setProperty("--cmux-panel-fg", palette?.foreground ?? (isDark ? "#cccccc" : "#1f1f1f"));
+  root.setProperty(
+    "--cmux-panel-border",
+    isDark ? "rgba(255, 255, 255, 0.14)" : "rgba(0, 0, 0, 0.14)"
+  );
+  root.setProperty(
+    "--cmux-panel-input-bg",
+    isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.04)"
+  );
+  root.setProperty(
+    "--cmux-panel-hover",
+    isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.07)"
+  );
+  root.setProperty(
+    "--cmux-panel-active",
+    isDark ? "rgba(255, 255, 255, 0.16)" : "rgba(0, 0, 0, 0.12)"
+  );
+  root.setProperty("--cmux-panel-accent", "#0a84ff");
+}
+
 function applyTheme(isDark: boolean, palette?: ThemePalette) {
   const base = isDark ? oneDark : [];
   const overlay = palette ? paletteTheme(palette) : [];
@@ -243,6 +366,7 @@ function applyTheme(isDark: boolean, palette?: ThemePalette) {
   mergeView?.b.dispatch({ effects });
   document.documentElement.style.colorScheme = isDark ? "dark" : "light";
   document.body.style.background = palette?.background ?? "transparent";
+  setPanelVars(isDark, palette);
 }
 
 function applyReadOnly(readOnly: boolean) {
