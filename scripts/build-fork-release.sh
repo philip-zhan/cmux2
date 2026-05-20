@@ -42,22 +42,18 @@ GHOSTTYKIT_CRASH_REPORT_SUBDIR="cmux/crash"
 for var in APPLE_ID APPLE_TEAM_ID APPLE_APP_SPECIFIC_PASSWORD SPARKLE_PRIVATE_KEY; do
   if [[ -z "${!var:-}" ]]; then echo "MISSING env: $var" >&2; exit 1; fi
 done
-for tool in zig xcodebuild create-dmg xcrun codesign ditto gh swift; do
+for tool in xcodebuild create-dmg xcrun codesign ditto gh swift curl python3; do
   command -v "$tool" >/dev/null || { echo "MISSING tool: $tool" >&2; exit 1; }
 done
 if [[ ! -f "$ENTITLEMENTS" ]]; then echo "MISSING: $ENTITLEMENTS" >&2; exit 1; fi
 echo "Pre-flight checks passed (repo=$REPO, tag=$TAG)"
 
-# --- Build GhosttyKit (universal, ReleaseFast) ---
-echo "Building GhosttyKit..."
-rm -rf GhosttyKit.xcframework ghostty/macos/GhosttyKit.xcframework
-(
-  cd ghostty
-  zig build -Dcrash-report-subdir="$GHOSTTYKIT_CRASH_REPORT_SUBDIR" \
-    -Demit-xcframework=true -Demit-macos-app=false \
-    -Dxcframework-target=universal -Doptimize=ReleaseFast
-)
-cp -R ghostty/macos/GhosttyKit.xcframework GhosttyKit.xcframework
+# --- Fetch GhosttyKit (prebuilt, pinned to the ghostty submodule SHA) ---
+# CI downloads a prebuilt xcframework rather than building ghostty from source
+# (which needs the Metal toolchain and gettext). Do the same here.
+echo "Downloading prebuilt GhosttyKit..."
+GHOSTTYKIT_CRASH_REPORT_SUBDIR="$GHOSTTYKIT_CRASH_REPORT_SUBDIR" \
+  ./scripts/download-prebuilt-ghosttykit.sh
 
 # --- Build app (universal Release, unsigned) ---
 echo "Building app (arm64 + x86_64)..."
