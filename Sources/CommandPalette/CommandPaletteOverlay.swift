@@ -4,6 +4,7 @@ import SwiftUI
 enum CommandPaletteRenderTrailingLabelStyle: Equatable {
     case shortcut
     case kind
+    case path
 }
 
 struct CommandPaletteRenderTrailingLabel: Equatable {
