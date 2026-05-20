@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cmux code viewer</title>
+<style>
+  :root { color-scheme: light dark; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: transparent;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  #editor {
+    position: absolute;
+    inset: 0;
+  }
+  .cm-editor {
+    height: 100%;
+    font-size: var(--cmux-cm-font-size, 13px);
+  }
+  .cm-scroller {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+</style>
+</head>
+<body>
+<div id="editor"></div>
+<script type="module">
+{{codeViewerJS}}
+</script>
+</body>
+</html>

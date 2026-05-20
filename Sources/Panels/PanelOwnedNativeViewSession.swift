@@ -29,10 +29,15 @@ final class PanelOwnedNativeViewSession<View: NSView> {
     }
 
     func update(_ view: View, configure: @MainActor (View) -> Void) {
-        if ownedView == nil {
-            ownedView = view
-        }
-        configure(view)
+        // SwiftUI can fire `updateNSView` after `close()` has torn the view
+        // down — e.g., when `applyResolvedPreviewMode` switches text mode in
+        // the same runloop turn that the switch-arm rebinds. Reconfiguring a
+        // closed AppKit view (QLPreviewView in particular, which asserts on
+        // `previewItem` assignment after `close()`) will fault. If `close()`
+        // ran, drop the stale call; a fresh `makeNSView` pass will adopt the
+        // new view via `view(configure:)`.
+        guard let owned = ownedView, owned === view else { return }
+        configure(owned)
     }
 
     func close() {
