@@ -1256,9 +1256,34 @@ struct ContentView: View {
         let subtitle: String
         let shortcutHint: String?
         let kindLabel: String?
+        let pathLabel: String?
         let keywords: [String]
         let dismissOnRun: Bool
         let action: () -> Void
+
+        init(
+            id: String,
+            rank: Int,
+            title: String,
+            subtitle: String,
+            shortcutHint: String?,
+            kindLabel: String?,
+            pathLabel: String? = nil,
+            keywords: [String],
+            dismissOnRun: Bool,
+            action: @escaping () -> Void
+        ) {
+            self.id = id
+            self.rank = rank
+            self.title = title
+            self.subtitle = subtitle
+            self.shortcutHint = shortcutHint
+            self.kindLabel = kindLabel
+            self.pathLabel = pathLabel
+            self.keywords = keywords
+            self.dismissOnRun = dismissOnRun
+            self.action = action
+        }
 
         var searchableTexts: [String] {
             [title, subtitle] + keywords
@@ -5040,7 +5065,8 @@ struct ContentView: View {
         kindLabel: String,
         tabManagerRef: @escaping () -> TabManager?
     ) -> [CommandPaletteSearchResult] {
-        matches.map { match in
+        _ = kindLabel
+        return matches.map { match in
             let parentPath = (match.relativePath as NSString).deletingLastPathComponent
             let absolutePath = rootPath.isEmpty
                 ? match.relativePath
@@ -5052,7 +5078,8 @@ struct ContentView: View {
                 title: match.fileName,
                 subtitle: parentPath,
                 shortcutHint: nil,
-                kindLabel: kindLabel,
+                kindLabel: nil,
+                pathLabel: parentPath.isEmpty ? nil : parentPath,
                 keywords: parentPath.isEmpty ? [relativePath] : [relativePath, parentPath],
                 dismissOnRun: true,
                 action: {
@@ -5303,6 +5330,10 @@ struct ContentView: View {
     private func commandPaletteRenderTrailingLabel(for command: CommandPaletteCommand) -> CommandPaletteRenderTrailingLabel? {
         if let shortcutHint = command.shortcutHint {
             return CommandPaletteRenderTrailingLabel(text: shortcutHint, style: .shortcut)
+        }
+
+        if let pathLabel = command.pathLabel, !pathLabel.isEmpty {
+            return CommandPaletteRenderTrailingLabel(text: pathLabel, style: .path)
         }
 
         if let kindLabel = command.kindLabel {
@@ -5767,6 +5798,13 @@ struct ContentView: View {
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+            case .path:
+                Text(trailingLabel.text)
+                    .font(.system(size: 11, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                    .layoutPriority(-1)
             }
         }
     }
