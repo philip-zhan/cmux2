@@ -428,6 +428,7 @@ struct TitlebarControlsView: View {
     @ObservedObject var notificationStore: TerminalNotificationStore
     @ObservedObject var viewModel: TitlebarControlsViewModel
     let onToggleSidebar: () -> Void
+    let onToggleRightSidebar: () -> Void
     let onToggleNotifications: () -> Void
     let onNewTab: () -> Void
     let visibilityMode: TitlebarControlsVisibilityMode
@@ -446,6 +447,7 @@ struct TitlebarControlsView: View {
 
     private enum HintSlot: Int, CaseIterable {
         case toggleSidebar
+        case toggleRightSidebar
         case showNotifications
         case newTab
 
@@ -453,6 +455,8 @@ struct TitlebarControlsView: View {
             switch self {
             case .toggleSidebar:
                 return .toggleSidebar
+            case .toggleRightSidebar:
+                return .toggleRightSidebar
             case .showNotifications:
                 return .showNotifications
             case .newTab:
@@ -560,6 +564,21 @@ struct TitlebarControlsView: View {
                 iconLabel(systemName: "sidebar.left", config: config, foregroundColor: foregroundColor)
             }
             .safeHelp(KeyboardShortcutSettings.Action.toggleSidebar.tooltip(String(localized: "titlebar.sidebar.tooltip", defaultValue: "Show or hide the sidebar")))
+
+            TitlebarControlButton(
+                config: config,
+                foregroundColor: foregroundColor,
+                accessibilityIdentifier: "titlebarControl.toggleRightSidebar",
+                accessibilityLabel: String(localized: "titlebar.rightSidebar.accessibilityLabel", defaultValue: "Toggle Right Sidebar"),
+                action: {
+                #if DEBUG
+                cmuxDebugLog("titlebar.toggleRightSidebar")
+                #endif
+                onToggleRightSidebar()
+            }) {
+                iconLabel(systemName: "sidebar.right", config: config, foregroundColor: foregroundColor)
+            }
+            .safeHelp(KeyboardShortcutSettings.Action.toggleRightSidebar.tooltip(String(localized: "titlebar.rightSidebar.tooltip", defaultValue: "Show or hide the right sidebar")))
 
             TitlebarControlButton(
                 config: config,
@@ -835,6 +854,7 @@ private struct MinimalModeTitlebarButtonHitRegionView: NSViewRepresentable {
 struct HiddenTitlebarSidebarControlsView: View {
     @ObservedObject var notificationStore: TerminalNotificationStore
     let onToggleSidebar: () -> Void
+    let onToggleRightSidebar: () -> Void
     let onToggleNotifications: (NSView?) -> Void
     let onNewTab: () -> Void
     @StateObject private var viewModel = TitlebarControlsViewModel()
@@ -884,6 +904,7 @@ struct HiddenTitlebarSidebarControlsView: View {
                 notificationStore: notificationStore,
                 viewModel: viewModel,
                 onToggleSidebar: onToggleSidebar,
+                onToggleRightSidebar: onToggleRightSidebar,
                 onToggleNotifications: { [viewModel] in
                     onToggleNotifications(viewModel.notificationsAnchorView)
                 },
@@ -913,6 +934,8 @@ struct HiddenTitlebarSidebarControlsView: View {
                 switch slot {
                 case .toggleSidebar:
                     onToggleSidebar()
+                case .toggleRightSidebar:
+                    onToggleRightSidebar()
                 case .showNotifications:
                     onToggleNotifications(anchorView)
                 case .newTab:
@@ -1363,6 +1386,9 @@ final class TitlebarControlsAccessoryViewController: NSTitlebarAccessoryViewCont
         let toggleSidebar = { [weak containerView] in
             _ = AppDelegate.shared?.toggleSidebarInActiveMainWindow(preferredWindow: containerView?.window)
         }
+        let toggleRightSidebar = { [weak containerView] in
+            _ = AppDelegate.shared?.toggleRightSidebarInActiveMainWindow(preferredWindow: containerView?.window)
+        }
         let toggleNotifications: () -> Void = { [weak containerView] in
             _ = AppDelegate.shared?.toggleNotificationsPopover(animated: true, anchorView: containerView)
         }
@@ -1372,6 +1398,7 @@ final class TitlebarControlsAccessoryViewController: NSTitlebarAccessoryViewCont
                 notificationStore: notificationStore,
                 viewModel: viewModel,
                 onToggleSidebar: toggleSidebar,
+                onToggleRightSidebar: toggleRightSidebar,
                 onToggleNotifications: toggleNotifications,
                 onNewTab: newTab,
                 visibilityMode: .alwaysVisible

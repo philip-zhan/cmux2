@@ -2006,6 +2006,11 @@ struct ContentView: View {
             fileExplorerState: fileExplorerState,
             onSendFeedback: presentFeedbackComposer,
             onToggleSidebar: { sidebarState.toggle() },
+            onToggleRightSidebar: {
+                _ = AppDelegate.shared?.toggleRightSidebarInActiveMainWindow(
+                    preferredWindow: NSApp.keyWindow ?? NSApp.mainWindow
+                )
+            },
             onNewTab: {
                 AppDelegate.shared?.performNewWorkspaceAction(
                     tabManager: tabManager,
@@ -2287,6 +2292,11 @@ struct ContentView: View {
             notificationStore: TerminalNotificationStore.shared,
             viewModel: fullscreenControlsViewModel,
             onToggleSidebar: { sidebarState.toggle() },
+            onToggleRightSidebar: {
+                _ = AppDelegate.shared?.toggleRightSidebarInActiveMainWindow(
+                    preferredWindow: NSApp.keyWindow ?? NSApp.mainWindow
+                )
+            },
             onToggleNotifications: { [fullscreenControlsViewModel] in
                 AppDelegate.shared?.toggleNotificationsPopover(
                     animated: true,
@@ -9736,6 +9746,7 @@ struct VerticalTabsSidebar: View {
     @ObservedObject var fileExplorerState: FileExplorerState
     let onSendFeedback: () -> Void
     let onToggleSidebar: () -> Void
+    let onToggleRightSidebar: () -> Void
     let onNewTab: () -> Void
     @EnvironmentObject var tabManager: TabManager
     @EnvironmentObject var notificationStore: TerminalNotificationStore
@@ -10031,6 +10042,7 @@ struct VerticalTabsSidebar: View {
                         HiddenTitlebarSidebarControlsView(
                             notificationStore: notificationStore,
                             onToggleSidebar: onToggleSidebar,
+                            onToggleRightSidebar: onToggleRightSidebar,
                             onToggleNotifications: { anchorView in
                                 AppDelegate.shared?.toggleNotificationsPopover(
                                     animated: true,

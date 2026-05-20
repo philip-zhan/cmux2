@@ -113,6 +113,17 @@ cd cmuxd && zig build -Doptimize=ReleaseFast
 ./scripts/reloads.sh
 ```
 
+**Visible-change policy:** Whenever a change affects the app's UI or visible behavior (new/changed
+buttons, menus, layouts, colors, panels, animations, or any user-facing behavior), launch a dev
+instance after building so the user can inspect it. Skip this only for non-visible changes (pure
+refactors, backend logic, docs).
+
+- Preferred: `./scripts/reloads.sh` — builds the Release app and launches it as "cmux STAGING"
+  side-by-side with production.
+- If `reloads.sh` fails with a code-signing error ("entitlements that require signing with a
+  development certificate"), the local Release config lacks development signing. Fall back to
+  `./scripts/reload.sh --tag <tag> --launch`, which builds and launches the tagged Debug app.
+
 `reload2` = reload both Debug and Release (tag required for Debug reload):
 
 ```bash

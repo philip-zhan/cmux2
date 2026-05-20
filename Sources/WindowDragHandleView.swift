@@ -630,13 +630,14 @@ enum MinimalModeSidebarTitlebarControlsMetrics {
         MinimalModeTitlebarDebugSettings.leftControlsTopInset(defaults: defaults)
     }
 
-    static let hostWidth: CGFloat = 124
+    static let hostWidth: CGFloat = 166
     static let hostHeight: CGFloat = 28
     static let singleButtonHostWidth: CGFloat = hostHeight
 }
 
 enum MinimalModeSidebarControlActionSlot: Int {
     case toggleSidebar
+    case toggleRightSidebar
     case showNotifications
     case newTab
 
@@ -644,6 +645,8 @@ enum MinimalModeSidebarControlActionSlot: Int {
         switch self {
         case .toggleSidebar:
             return "titlebarControl.toggleSidebar"
+        case .toggleRightSidebar:
+            return "titlebarControl.toggleRightSidebar"
         case .showNotifications:
             return "titlebarControl.showNotifications"
         case .newTab:
@@ -655,6 +658,8 @@ enum MinimalModeSidebarControlActionSlot: Int {
         switch self {
         case .toggleSidebar:
             return String(localized: "titlebar.sidebar.accessibilityLabel", defaultValue: "Toggle Sidebar")
+        case .toggleRightSidebar:
+            return String(localized: "titlebar.rightSidebar.accessibilityLabel", defaultValue: "Toggle Right Sidebar")
         case .showNotifications:
             return String(localized: "titlebar.notifications.accessibilityLabel", defaultValue: "Notifications")
         case .newTab:
@@ -666,6 +671,8 @@ enum MinimalModeSidebarControlActionSlot: Int {
         switch self {
         case .toggleSidebar:
             return "toggleSidebar"
+        case .toggleRightSidebar:
+            return "toggleRightSidebar"
         case .showNotifications:
             return "showNotifications"
         case .newTab:
