@@ -1,6 +1,7 @@
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import {
   EditorView,
+  type Panel,
   drawSelection,
   highlightActiveLine,
   highlightActiveLineGutter,
@@ -8,7 +9,16 @@ import {
   lineNumbers,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { search, searchKeymap } from "@codemirror/search";
+import {
+  SearchQuery,
+  closeSearchPanel,
+  findNext,
+  findPrevious,
+  getSearchQuery,
+  search,
+  searchKeymap,
+  setSearchQuery,
+} from "@codemirror/search";
 import { StreamLanguage } from "@codemirror/language";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
@@ -147,97 +157,229 @@ const contentChangeListener = EditorView.updateListener.of((u) => {
   if (u.docChanged) scheduleContentChange(u.view);
 });
 
-// Floating search widget styled after VS Code's find box: a rounded,
-// shadowed panel pinned to the top-right corner that overlays the editor
-// instead of docking and pushing content down. Colors are driven by CSS
-// variables set in `setPanelVars` so the widget tracks the active theme.
+// A minimal find widget modeled on VS Code's: a compact bar attached to the
+// top-right edge, with the case / whole-word / regex toggles tucked inside
+// the input and small icon buttons for previous / next / close.
+function createSearchPanel(view: EditorView): Panel {
+  const initial = getSearchQuery(view.state);
+  let caseSensitive = initial.caseSensitive;
+  let wholeWord = initial.wholeWord;
+  let regexp = initial.regexp;
+
+  const dom = document.createElement("div");
+  dom.className = "cmux-search";
+  dom.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeSearchPanel(view);
+      view.focus();
+    }
+  });
+
+  const field = document.createElement("input");
+  field.className = "cmux-search-input";
+  field.placeholder = "Find";
+  field.spellcheck = false;
+  field.setAttribute("aria-label", "Find");
+  field.setAttribute("main-field", "true");
+  field.value = initial.search;
+
+  const makeButton = (cls: string, label: string, title: string) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = cls;
+    button.textContent = label;
+    button.title = title;
+    button.setAttribute("aria-label", title);
+    button.tabIndex = -1;
+    return button;
+  };
+
+  const caseButton = makeButton("cmux-search-toggle", "Aa", "Match Case");
+  const wordButton = makeButton("cmux-search-toggle", "ab", "Match Whole Word");
+  const regexpButton = makeButton("cmux-search-toggle", ".*", "Use Regular Expression");
+  const prevButton = makeButton("cmux-search-action", "↑", "Previous Match");
+  const nextButton = makeButton("cmux-search-action", "↓", "Next Match");
+  const closeButton = makeButton("cmux-search-action", "✕", "Close");
+
+  const syncToggles = () => {
+    caseButton.classList.toggle("cmux-search-toggle-on", caseSensitive);
+    wordButton.classList.toggle("cmux-search-toggle-on", wholeWord);
+    regexpButton.classList.toggle("cmux-search-toggle-on", regexp);
+  };
+  syncToggles();
+
+  const commitQuery = () => {
+    view.dispatch({
+      effects: setSearchQuery.of(
+        new SearchQuery({
+          search: field.value,
+          caseSensitive,
+          regexp,
+          wholeWord,
+        })
+      ),
+    });
+  };
+
+  field.addEventListener("input", commitQuery);
+  field.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (e.shiftKey) findPrevious(view);
+      else findNext(view);
+    }
+  });
+
+  const toggle = (button: HTMLButtonElement, apply: () => void) => {
+    button.addEventListener("click", () => {
+      apply();
+      syncToggles();
+      commitQuery();
+      field.focus();
+    });
+  };
+  toggle(caseButton, () => {
+    caseSensitive = !caseSensitive;
+  });
+  toggle(wordButton, () => {
+    wholeWord = !wholeWord;
+  });
+  toggle(regexpButton, () => {
+    regexp = !regexp;
+  });
+  prevButton.addEventListener("click", () => {
+    findPrevious(view);
+    field.focus();
+  });
+  nextButton.addEventListener("click", () => {
+    findNext(view);
+    field.focus();
+  });
+  closeButton.addEventListener("click", () => {
+    closeSearchPanel(view);
+    view.focus();
+  });
+
+  const toggles = document.createElement("div");
+  toggles.className = "cmux-search-toggles";
+  toggles.append(caseButton, wordButton, regexpButton);
+
+  const fieldWrap = document.createElement("div");
+  fieldWrap.className = "cmux-search-field";
+  fieldWrap.append(field, toggles);
+
+  dom.append(fieldWrap, prevButton, nextButton, closeButton);
+
+  return {
+    dom,
+    top: true,
+    mount() {
+      if (field.value && field.value !== getSearchQuery(view.state).search) {
+        commitQuery();
+      }
+      field.focus();
+      field.select();
+    },
+  };
+}
+
+// Colors are driven by CSS variables set in `setPanelVars` so the widget
+// tracks the active theme.
 function searchPanelTheme(): Extension {
   return EditorView.theme({
     ".cm-panels.cm-panels-top": {
       position: "absolute",
-      top: "8px",
-      right: "16px",
+      top: "0",
+      right: "14px",
       left: "auto",
       width: "auto",
-      maxWidth: "calc(100% - 24px)",
       backgroundColor: "transparent",
       border: "none",
       zIndex: "20",
     },
-    ".cm-panels": { color: "var(--cmux-panel-fg)" },
-    ".cm-search": {
+    ".cmux-search": {
       display: "flex",
-      flexWrap: "wrap",
       alignItems: "center",
-      gap: "4px",
-      padding: "6px 26px 6px 8px",
-      borderRadius: "8px",
+      gap: "1px",
+      padding: "3px 4px",
+      borderRadius: "0 0 4px 4px",
       backgroundColor: "var(--cmux-panel-bg)",
       border: "1px solid var(--cmux-panel-border)",
-      boxShadow: "0 6px 22px rgba(0, 0, 0, 0.34)",
-      fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif",
-      fontSize: "12px",
-    },
-    ".cm-search label": {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: "3px",
-      margin: "0",
-      padding: "2px 4px",
-      borderRadius: "4px",
-      fontSize: "11px",
-      opacity: "0.85",
-      userSelect: "none",
-    },
-    ".cm-search label:hover": { backgroundColor: "var(--cmux-panel-hover)" },
-    ".cm-search input, .cm-search button": { margin: "0" },
-    ".cm-search input.cm-textfield": {
-      backgroundColor: "var(--cmux-panel-input-bg)",
+      borderTop: "none",
+      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
       color: "var(--cmux-panel-fg)",
-      border: "1px solid var(--cmux-panel-border)",
-      borderRadius: "4px",
-      padding: "3px 6px",
+      fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif",
+    },
+    ".cmux-search-field": {
+      position: "relative",
+      display: "flex",
+      alignItems: "center",
+      marginRight: "3px",
+    },
+    ".cmux-search-input": {
+      width: "170px",
+      height: "22px",
+      boxSizing: "border-box",
+      padding: "0 70px 0 6px",
       fontSize: "12px",
+      color: "var(--cmux-panel-fg)",
+      backgroundColor: "var(--cmux-panel-input-bg)",
+      border: "1px solid transparent",
+      borderRadius: "2px",
       outline: "none",
     },
-    ".cm-search input.cm-textfield:focus-visible": {
+    ".cmux-search-input:focus": {
       borderColor: "var(--cmux-panel-accent)",
-      boxShadow: "0 0 0 1px var(--cmux-panel-accent)",
     },
-    ".cm-search .cm-button": {
-      backgroundColor: "transparent",
-      backgroundImage: "none",
+    ".cmux-search-input::placeholder": {
       color: "var(--cmux-panel-fg)",
-      border: "1px solid transparent",
-      borderRadius: "4px",
-      padding: "3px 8px",
-      fontSize: "11px",
-      cursor: "pointer",
+      opacity: "0.45",
     },
-    ".cm-search .cm-button:hover": {
-      backgroundColor: "var(--cmux-panel-hover)",
-    },
-    ".cm-search .cm-button:active": {
-      backgroundColor: "var(--cmux-panel-active)",
-    },
-    ".cm-search button[name=close]": {
+    ".cmux-search-toggles": {
       position: "absolute",
-      top: "4px",
-      right: "6px",
-      width: "18px",
+      right: "2px",
+      display: "flex",
+      gap: "1px",
+    },
+    ".cmux-search-toggle": {
+      width: "20px",
       height: "18px",
-      padding: "0",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      borderRadius: "4px",
-      fontSize: "16px",
+      padding: "0",
+      fontSize: "10px",
+      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+      color: "var(--cmux-panel-fg)",
+      backgroundColor: "transparent",
+      border: "1px solid transparent",
+      borderRadius: "3px",
+      cursor: "pointer",
+    },
+    ".cmux-search-toggle:hover": {
+      backgroundColor: "var(--cmux-panel-hover)",
+    },
+    ".cmux-search-toggle-on": {
+      backgroundColor: "var(--cmux-panel-toggle-on-bg)",
+      borderColor: "var(--cmux-panel-accent)",
+    },
+    ".cmux-search-action": {
+      width: "22px",
+      height: "22px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0",
+      fontSize: "12px",
       lineHeight: "1",
       color: "var(--cmux-panel-fg)",
       backgroundColor: "transparent",
+      border: "none",
+      borderRadius: "3px",
       cursor: "pointer",
     },
-    ".cm-search button[name=close]:hover": {
+    ".cmux-search-action:hover": {
       backgroundColor: "var(--cmux-panel-hover)",
     },
   });
@@ -251,7 +393,7 @@ function baseExtensions(): Extension[] {
     drawSelection(),
     EditorState.allowMultipleSelections.of(true),
     history(),
-    search({ top: true }),
+    search({ top: true, createPanel: createSearchPanel }),
     searchPanelTheme(),
     // Save chord is intercepted on the Swift side so it can honor the user's
     // KeyboardShortcutSettings.saveFilePreview binding (which may be a chord
@@ -331,9 +473,9 @@ function paletteTheme(palette: ThemePalette): Extension {
   );
 }
 
-// Drive the floating search widget's colors. The widget styling in
-// `searchPanelTheme` is static, so theme changes flow through CSS variables
-// set here instead of reconfiguring a compartment.
+// Drive the find widget's colors. The widget styling in `searchPanelTheme`
+// is static, so theme changes flow through CSS variables set here instead
+// of reconfiguring a compartment.
 function setPanelVars(isDark: boolean, palette?: ThemePalette) {
   const root = document.documentElement.style;
   root.setProperty("--cmux-panel-bg", palette?.background ?? (isDark ? "#252526" : "#ffffff"));
@@ -351,8 +493,8 @@ function setPanelVars(isDark: boolean, palette?: ThemePalette) {
     isDark ? "rgba(255, 255, 255, 0.10)" : "rgba(0, 0, 0, 0.07)"
   );
   root.setProperty(
-    "--cmux-panel-active",
-    isDark ? "rgba(255, 255, 255, 0.16)" : "rgba(0, 0, 0, 0.12)"
+    "--cmux-panel-toggle-on-bg",
+    isDark ? "rgba(10, 132, 255, 0.38)" : "rgba(10, 132, 255, 0.20)"
   );
   root.setProperty("--cmux-panel-accent", "#0a84ff");
 }
