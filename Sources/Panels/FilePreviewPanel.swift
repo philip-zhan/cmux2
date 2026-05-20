@@ -1206,6 +1206,20 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
     }
 }
 
+extension FilePreviewPanel: CodeMirrorEditingPanel {
+    var codeEditorBaseContent: String { originalTextContent }
+
+    var codeRendererSession: CodeRendererSession { nativeViewSessions.code }
+
+    func noteCodeEditorPointerFocus() {
+        noteFilePreviewFocusIntent(.textEditor)
+    }
+
+    func attachCodeEditorFocus(view: NSView) {
+        attachPreviewFocus(root: view, primaryResponder: view, intent: .textEditor)
+    }
+}
+
 struct FilePreviewPanelView: View {
     @ObservedObject var panel: FilePreviewPanel
     let isFocused: Bool

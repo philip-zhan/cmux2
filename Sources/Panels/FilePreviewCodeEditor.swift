@@ -2,17 +2,39 @@ import AppKit
 import SwiftUI
 import WebKit
 
-/// SwiftUI wrapper that drives `CodeWebRenderer` from a `FilePreviewPanel`.
+/// A panel that can host the CodeMirror text engine via `FilePreviewCodeEditor`.
 ///
-/// Stage 6 of the code viewer rollout: when `CodePreviewEngineSettings`
-/// routes a text-mode panel to CodeMirror, `FilePreviewPanelView` mounts this
-/// view instead of `FilePreviewTextEditor`. The on-disk snapshot
-/// (`panel.originalTextContent`) drives the renderer's `content:` prop so
+/// Refines `FilePreviewTextEditingPanel` with the extra hooks the WKWebView
+/// editor needs: the on-disk content snapshot that drives the renderer's
+/// `content:` prop, the panel-owned `CodeRendererSession`, panel identity, and
+/// the focus-registration shims. Both `FilePreviewPanel` and `MarkdownPanel`
+/// conform so the same CodeMirror editor backs the file preview and the
+/// dedicated markdown viewer's TextEdit mode.
+@MainActor
+protocol CodeMirrorEditingPanel: AnyObject, FilePreviewTextEditingPanel {
+    var id: UUID { get }
+    var workspaceId: UUID { get }
+    var filePath: String { get }
+    /// On-disk snapshot of the file text. Drives the renderer's `content:`
+    /// prop so per-keystroke edits don't churn the WebKit payload.
+    var codeEditorBaseContent: String { get }
+    var codeRendererSession: CodeRendererSession { get }
+    func noteCodeEditorPointerFocus()
+    func attachCodeEditorFocus(view: NSView)
+}
+
+/// SwiftUI wrapper that drives `CodeWebRenderer` from a `CodeMirrorEditingPanel`.
+///
+/// When `CodePreviewEngineSettings` routes a text-mode panel to CodeMirror,
+/// `FilePreviewPanelView` mounts this view instead of `FilePreviewTextEditor`;
+/// `MarkdownPanelView` mounts it for its TextEdit mode. The on-disk snapshot
+/// (`panel.codeEditorBaseContent`) drives the renderer's `content:` prop so
 /// per-keystroke edits don't churn the WebKit payload; the live in-memory
 /// buffer lives in the JS editor and is reported back through
 /// `onContentChanged`.
-struct FilePreviewCodeEditor: View {
-    @ObservedObject var panel: FilePreviewPanel
+struct FilePreviewCodeEditor<PanelModel>: View
+where PanelModel: ObservableObject & CodeMirrorEditingPanel {
+    @ObservedObject var panel: PanelModel
     let isVisibleInUI: Bool
     let themeBackgroundColor: NSColor
     let themeForegroundColor: NSColor
@@ -20,7 +42,7 @@ struct FilePreviewCodeEditor: View {
 
     var body: some View {
         CodeWebRenderer(
-            content: panel.originalTextContent,
+            content: panel.codeEditorBaseContent,
             languageId: detectedLanguageId,
             theme: theme,
             fontSize: defaultFontSize,
@@ -31,7 +53,7 @@ struct FilePreviewCodeEditor: View {
             panelId: panel.id,
             workspaceId: panel.workspaceId,
             filePath: panel.filePath,
-            session: panel.nativeViewSessions.code,
+            session: panel.codeRendererSession,
             onRequestPanelFocus: handlePointerFocus,
             onSaveRequested: handleSaveRequested,
             onContentChanged: handleContentChanged,
@@ -66,10 +88,10 @@ struct FilePreviewCodeEditor: View {
     private var defaultFontSize: Int { 13 }
 
     private func handlePointerFocus() {
-        // Pointer-down inside the web view should treat the file preview the
-        // same way a click on the NSTextView does: announce focus intent so
-        // the panel framework can route navigation.
-        panel.noteFilePreviewFocusIntent(.textEditor)
+        // Pointer-down inside the web view should treat the panel the same way
+        // a click on the NSTextView does: announce focus intent so the panel
+        // framework can route navigation.
+        panel.noteCodeEditorPointerFocus()
     }
 
     private func handleContentChanged(_ next: String) {
@@ -81,7 +103,7 @@ struct FilePreviewCodeEditor: View {
         // the configured shortcut, but the JS bridge debounces
         // `contentChanged` by 120ms. Pull the live document from the editor
         // before saving so we never persist a stale snapshot.
-        let session = panel.nativeViewSessions.code
+        let session = panel.codeRendererSession
         Task { @MainActor in
             if let latest = await session.currentDocument() {
                 panel.updateTextContent(latest)
@@ -91,12 +113,11 @@ struct FilePreviewCodeEditor: View {
     }
 }
 
-/// AppKit shim that registers the WKWebView underneath
-/// `FilePreviewCodeEditor` with the panel's focus coordinator so
-/// `panel.focus()` / restoreFocusIntent works the same way it does for the
-/// NSTextView engine.
+/// AppKit shim that registers the WKWebView underneath `FilePreviewCodeEditor`
+/// with the panel so `panel.focus()` routes into the embedded editor the same
+/// way it does for the NSTextView engine.
 private struct FilePreviewCodeEditorFocusBridge: NSViewRepresentable {
-    let panel: FilePreviewPanel
+    let panel: any CodeMirrorEditingPanel
 
     func makeNSView(context: Context) -> FilePreviewCodeEditorFocusBridgeView {
         let view = FilePreviewCodeEditorFocusBridgeView()
@@ -111,7 +132,7 @@ private struct FilePreviewCodeEditorFocusBridge: NSViewRepresentable {
 }
 
 private final class FilePreviewCodeEditorFocusBridgeView: NSView {
-    weak var panel: FilePreviewPanel?
+    weak var panel: (any CodeMirrorEditingPanel)?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
@@ -121,11 +142,7 @@ private final class FilePreviewCodeEditorFocusBridgeView: NSView {
     func registerIfNeeded() {
         guard let panel else { return }
         guard let webView = findCodeWebView() else { return }
-        panel.attachPreviewFocus(
-            root: webView,
-            primaryResponder: webView,
-            intent: .textEditor
-        )
+        panel.attachCodeEditorFocus(view: webView)
     }
 
     /// Walks the sibling tree to find the CodeWebView (it's mounted by the

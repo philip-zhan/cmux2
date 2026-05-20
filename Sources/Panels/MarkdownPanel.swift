@@ -12,7 +12,7 @@ enum MarkdownPanelDisplayMode: String, CaseIterable, Identifiable {
 /// A panel that renders a markdown file with live file-watching.
 /// When the file changes on disk, the content is automatically reloaded.
 @MainActor
-final class MarkdownPanel: Panel, ObservableObject, FilePreviewTextEditingPanel {
+final class MarkdownPanel: Panel, ObservableObject, FilePreviewTextEditingPanel, CodeMirrorEditingPanel {
     let id: UUID
     let panelType: PanelType = .markdown
 
@@ -53,6 +53,14 @@ final class MarkdownPanel: Panel, ObservableObject, FilePreviewTextEditingPanel 
     /// layout churn does not recreate the WKWebView and flash existing content.
     let rendererSession = MarkdownRendererSession()
 
+    /// Stable CodeMirror renderer state backing the TextEdit mode. Panel-owned
+    /// for the same reason as `rendererSession`.
+    let codeRendererSession = CodeRendererSession()
+
+    /// On-disk snapshot of the file text. Drives the CodeMirror `content:`
+    /// prop so per-keystroke edits don't churn the WebKit payload.
+    var codeEditorBaseContent: String { originalTextContent }
+
     // MARK: - File watching
 
     // nonisolated(unsafe) because deinit is not guaranteed to run on the
@@ -66,6 +74,7 @@ final class MarkdownPanel: Panel, ObservableObject, FilePreviewTextEditingPanel 
     private var activeSaveGeneration: Int?
     private var pendingSearchNeedle: String?
     private weak var textView: NSTextView?
+    private weak var codeEditorView: NSView?
     private var isClosed: Bool = false
     private let watchQueue = DispatchQueue(label: "com.cmux.markdown-file-watch", qos: .utility)
 
@@ -85,8 +94,12 @@ final class MarkdownPanel: Panel, ObservableObject, FilePreviewTextEditingPanel 
 
     func focus() {
         guard displayMode == .text else { return }
-        _ = textView?.window?.makeFirstResponder(textView)
-        applyPendingSearchNeedleIfPossible()
+        if let textView {
+            _ = textView.window?.makeFirstResponder(textView)
+            applyPendingSearchNeedleIfPossible()
+        } else if let codeEditorView {
+            _ = codeEditorView.window?.makeFirstResponder(codeEditorView)
+        }
     }
 
     func unfocus() {
@@ -96,6 +109,7 @@ final class MarkdownPanel: Panel, ObservableObject, FilePreviewTextEditingPanel 
     func close() {
         isClosed = true
         rendererSession.close()
+        codeRendererSession.close()
         GlobalSearchCoordinator.shared.purgePanel(id: id)
         textView = nil
         stopWatching()
@@ -117,6 +131,15 @@ final class MarkdownPanel: Panel, ObservableObject, FilePreviewTextEditingPanel 
 
     func attachTextView(_ textView: NSTextView) {
         self.textView = textView
+    }
+
+    func noteCodeEditorPointerFocus() {
+        // The markdown panel has no focus coordinator; pointer-down focus is
+        // routed through the surrounding panel chrome's onRequestPanelFocus.
+    }
+
+    func attachCodeEditorFocus(view: NSView) {
+        codeEditorView = view
     }
 
     func retryPendingFocus() {
