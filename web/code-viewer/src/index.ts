@@ -15,6 +15,8 @@ import {
   findNext,
   findPrevious,
   getSearchQuery,
+  replaceAll,
+  replaceNext,
   search,
   searchKeymap,
   setSearchQuery,
@@ -157,14 +159,24 @@ const contentChangeListener = EditorView.updateListener.of((u) => {
   if (u.docChanged) scheduleContentChange(u.view);
 });
 
-// A minimal find widget modeled on VS Code's: a compact bar attached to the
-// top-right edge, with the case / whole-word / regex toggles tucked inside
-// the input and small icon buttons for previous / next / close.
+const REPLACE_ICON =
+  '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M8 2.5v6"/><path d="M5.3 5.8 8 8.5l2.7-2.7"/><path d="M3.5 12.5h9"/></svg>';
+const REPLACE_ALL_ICON =
+  '<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" ' +
+  'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+  '<path d="M8 1.5v5"/><path d="M5.3 4.3 8 7l2.7-2.7"/><path d="M3.5 10.5h9"/><path d="M3.5 13.5h9"/></svg>';
+
+// A minimal find/replace widget modeled on VS Code's: a compact bar attached
+// to the top-right edge. The case / whole-word / regex toggles are tucked
+// inside the find input; a chevron expands the replace row.
 function createSearchPanel(view: EditorView): Panel {
   const initial = getSearchQuery(view.state);
   let caseSensitive = initial.caseSensitive;
   let wholeWord = initial.wholeWord;
   let regexp = initial.regexp;
+  let replaceShown = false;
 
   const dom = document.createElement("div");
   dom.className = "cmux-search";
@@ -176,14 +188,6 @@ function createSearchPanel(view: EditorView): Panel {
     }
   });
 
-  const field = document.createElement("input");
-  field.className = "cmux-search-input";
-  field.placeholder = "Find";
-  field.spellcheck = false;
-  field.setAttribute("aria-label", "Find");
-  field.setAttribute("main-field", "true");
-  field.value = initial.search;
-
   const makeButton = (cls: string, label: string, title: string) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -194,13 +198,36 @@ function createSearchPanel(view: EditorView): Panel {
     button.tabIndex = -1;
     return button;
   };
+  const makeIconButton = (cls: string, svg: string, title: string) => {
+    const button = makeButton(cls, "", title);
+    button.innerHTML = svg;
+    return button;
+  };
 
+  const field = document.createElement("input");
+  field.className = "cmux-search-input";
+  field.placeholder = "Find";
+  field.spellcheck = false;
+  field.setAttribute("aria-label", "Find");
+  field.setAttribute("main-field", "true");
+  field.value = initial.search;
+
+  const replaceField = document.createElement("input");
+  replaceField.className = "cmux-search-input";
+  replaceField.placeholder = "Replace";
+  replaceField.spellcheck = false;
+  replaceField.setAttribute("aria-label", "Replace");
+  replaceField.value = initial.replace;
+
+  const expandButton = makeButton("cmux-search-expand", "›", "Toggle Replace");
   const caseButton = makeButton("cmux-search-toggle", "Aa", "Match Case");
   const wordButton = makeButton("cmux-search-toggle", "ab", "Match Whole Word");
   const regexpButton = makeButton("cmux-search-toggle", ".*", "Use Regular Expression");
   const prevButton = makeButton("cmux-search-action", "↑", "Previous Match");
   const nextButton = makeButton("cmux-search-action", "↓", "Next Match");
   const closeButton = makeButton("cmux-search-action", "✕", "Close");
+  const replaceButton = makeIconButton("cmux-search-action", REPLACE_ICON, "Replace");
+  const replaceAllButton = makeIconButton("cmux-search-action", REPLACE_ALL_ICON, "Replace All");
 
   const syncToggles = () => {
     caseButton.classList.toggle("cmux-search-toggle-on", caseSensitive);
@@ -214,6 +241,7 @@ function createSearchPanel(view: EditorView): Panel {
       effects: setSearchQuery.of(
         new SearchQuery({
           search: field.value,
+          replace: replaceField.value,
           caseSensitive,
           regexp,
           wholeWord,
@@ -228,6 +256,13 @@ function createSearchPanel(view: EditorView): Panel {
       e.preventDefault();
       if (e.shiftKey) findPrevious(view);
       else findNext(view);
+    }
+  });
+  replaceField.addEventListener("input", commitQuery);
+  replaceField.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      replaceNext(view);
     }
   });
 
@@ -260,6 +295,12 @@ function createSearchPanel(view: EditorView): Panel {
     closeSearchPanel(view);
     view.focus();
   });
+  replaceButton.addEventListener("click", () => {
+    replaceNext(view);
+  });
+  replaceAllButton.addEventListener("click", () => {
+    replaceAll(view);
+  });
 
   const toggles = document.createElement("div");
   toggles.className = "cmux-search-toggles";
@@ -269,11 +310,51 @@ function createSearchPanel(view: EditorView): Panel {
   fieldWrap.className = "cmux-search-field";
   fieldWrap.append(field, toggles);
 
-  dom.append(fieldWrap, prevButton, nextButton, closeButton);
+  const replaceWrap = document.createElement("div");
+  replaceWrap.className = "cmux-search-field";
+  replaceWrap.append(replaceField);
+
+  const findRow = document.createElement("div");
+  findRow.className = "cmux-search-row";
+  findRow.append(fieldWrap, prevButton, nextButton, closeButton);
+
+  const replaceRow = document.createElement("div");
+  replaceRow.className = "cmux-search-row cmux-search-replace-row";
+  replaceRow.append(replaceWrap, replaceButton, replaceAllButton);
+  replaceRow.style.display = "none";
+
+  const rows = document.createElement("div");
+  rows.className = "cmux-search-rows";
+  rows.append(findRow, replaceRow);
+
+  const setReplaceShown = (shown: boolean) => {
+    replaceShown = shown;
+    replaceRow.style.display = shown ? "" : "none";
+    expandButton.textContent = shown ? "⌄" : "›";
+    expandButton.classList.toggle("cmux-search-expand-on", shown);
+  };
+  expandButton.addEventListener("click", () => {
+    setReplaceShown(!replaceShown);
+    if (replaceShown) replaceField.focus();
+    else field.focus();
+  });
+
+  dom.append(expandButton, rows);
+
+  // Replace is meaningless in a read-only document — hide the affordance.
+  const applyReadOnly = () => {
+    const readOnly = view.state.readOnly;
+    expandButton.style.display = readOnly ? "none" : "";
+    if (readOnly && replaceShown) setReplaceShown(false);
+  };
+  applyReadOnly();
 
   return {
     dom,
     top: true,
+    update(u) {
+      if (u.state.readOnly !== u.startState.readOnly) applyReadOnly();
+    },
     mount() {
       if (field.value && field.value !== getSearchQuery(view.state).search) {
         commitQuery();
@@ -300,9 +381,9 @@ function searchPanelTheme(): Extension {
     },
     ".cmux-search": {
       display: "flex",
-      alignItems: "center",
-      gap: "1px",
-      padding: "3px 4px",
+      alignItems: "stretch",
+      gap: "2px",
+      padding: "4px",
       borderRadius: "0 0 4px 4px",
       backgroundColor: "var(--cmux-panel-bg)",
       border: "1px solid var(--cmux-panel-border)",
@@ -311,11 +392,41 @@ function searchPanelTheme(): Extension {
       color: "var(--cmux-panel-fg)",
       fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif",
     },
+    ".cmux-search-expand": {
+      width: "14px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0",
+      fontSize: "13px",
+      lineHeight: "1",
+      color: "var(--cmux-panel-fg)",
+      backgroundColor: "transparent",
+      border: "none",
+      borderRadius: "3px",
+      cursor: "pointer",
+    },
+    ".cmux-search-expand:hover": {
+      backgroundColor: "var(--cmux-panel-hover)",
+    },
+    ".cmux-search-rows": {
+      display: "flex",
+      flexDirection: "column",
+      gap: "3px",
+    },
+    ".cmux-search-row": {
+      display: "flex",
+      alignItems: "center",
+      gap: "1px",
+    },
     ".cmux-search-field": {
       position: "relative",
       display: "flex",
       alignItems: "center",
       marginRight: "3px",
+    },
+    ".cmux-search-replace-row .cmux-search-input": {
+      padding: "0 6px",
     },
     ".cmux-search-input": {
       width: "170px",
