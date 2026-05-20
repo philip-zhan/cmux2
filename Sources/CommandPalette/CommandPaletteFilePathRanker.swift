@@ -11,6 +11,10 @@ import Foundation
 /// 3. Filename contains the query.
 /// 4. Full relative path contains the query (used when the user types a directory
 ///    fragment like `views/cell`).
+/// 5. Filename fuzzy-matches the query — the query characters appear in order with
+///    gaps, so `foobar` matches `foo-bar.swift`. Word-boundary and consecutive-run
+///    bonuses (fzy-style scoring) keep the best matches on top.
+/// 6. Full relative path fuzzy-matches the query.
 ///
 /// Within a tier, shorter strings win — a `Button.swift` whose basename is the query
 /// outranks `LargeButtonGroupContainerButton.swift`.
@@ -45,9 +49,19 @@ enum CommandPaletteFilePathRanker {
     private static let tierStartsWith = 3_000_000
     private static let tierContains = 2_000_000
     private static let tierPathContains = 1_000_000
+    private static let tierFuzzyBasename = 800_000
+    private static let tierFuzzyPath = 600_000
     /// Shorter strings beat longer ones in the same tier. Clamped so a single character
     /// difference matters but pathological 10k-char paths don't underflow.
     private static let lengthPenaltyCap = 10_000
+    /// Fuzzy scores are clamped into this half-band so they differentiate within their
+    /// tier without bleeding into a neighboring tier (tiers are 200k apart).
+    private static let fuzzyScoreBand = 90_000
+    /// Skip fuzzy matching for haystacks longer than this. The O(query × haystack) DP
+    /// stays cheap at file-name / relative-path scale; this guards against pathological
+    /// inputs without affecting realistic paths.
+    private static let fuzzyBasenameMaxLength = 128
+    private static let fuzzyPathMaxLength = 256
 
     static func rank(
         query: String,
@@ -69,13 +83,18 @@ enum CommandPaletteFilePathRanker {
             }
         }
         let needle = trimmed.lowercased()
+        let needleChars = Array(needle)
 
         var matches: [Match] = []
         matches.reserveCapacity(min(candidates.count, 1024))
 
         for candidate in candidates {
             if shouldCancel() { break }
-            guard let match = Self.scoreCandidate(candidate, needle: needle) else {
+            guard let match = Self.scoreCandidate(
+                candidate,
+                needle: needle,
+                needleChars: needleChars
+            ) else {
                 continue
             }
             matches.append(match)
@@ -88,7 +107,11 @@ enum CommandPaletteFilePathRanker {
         return matches
     }
 
-    private static func scoreCandidate(_ candidate: Candidate, needle: String) -> Match? {
+    private static func scoreCandidate(
+        _ candidate: Candidate,
+        needle: String,
+        needleChars: [Character]
+    ) -> Match? {
         if let basenameRange = candidate.fileNameLower.range(of: needle) {
             let basenameStart = basenameRange.lowerBound
             let basenameEnd = basenameRange.upperBound
@@ -125,7 +148,176 @@ enum CommandPaletteFilePathRanker {
                 fileNameMatchIndices: []
             )
         }
+        if let fuzzy = Self.fuzzyMatch(
+            needle: needleChars,
+            haystackLower: candidate.fileNameLower,
+            haystackOriginal: candidate.fileName,
+            maxLength: Self.fuzzyBasenameMaxLength
+        ) {
+            return Match(
+                id: candidate.id,
+                score: Self.tierFuzzyBasename + Self.clampFuzzyScore(fuzzy.score),
+                fileName: candidate.fileName,
+                relativePath: candidate.relativePath,
+                fileNameMatchIndices: Set(fuzzy.indices)
+            )
+        }
+        if let fuzzy = Self.fuzzyMatch(
+            needle: needleChars,
+            haystackLower: candidate.relativePathLower,
+            haystackOriginal: candidate.relativePath,
+            maxLength: Self.fuzzyPathMaxLength
+        ) {
+            return Match(
+                id: candidate.id,
+                score: Self.tierFuzzyPath + Self.clampFuzzyScore(fuzzy.score),
+                fileName: candidate.fileName,
+                relativePath: candidate.relativePath,
+                fileNameMatchIndices: []
+            )
+        }
         return nil
+    }
+
+    private static func clampFuzzyScore(_ score: Int) -> Int {
+        min(Self.fuzzyScoreBand, max(-Self.fuzzyScoreBand, score))
+    }
+
+    // MARK: - Fuzzy matching
+
+    // fzy-style scoring constants (https://github.com/jhawthorn/fzy), scaled to integers.
+    private static let scoreMin = -1_000_000
+    private static let scoreGapLeading = -5
+    private static let scoreGapTrailing = -5
+    private static let scoreGapInner = -10
+    private static let scoreMatchConsecutive = 1_000
+    private static let scoreMatchSlash = 900
+    private static let scoreMatchWord = 800
+    private static let scoreMatchCapital = 700
+    private static let scoreMatchDot = 600
+
+    /// Fuzzy-matches `needle` (already lowercased) against `haystackLower`, returning the
+    /// fzy-style score and the matched character offsets into the haystack. Returns nil
+    /// when `needle` is not an in-order subsequence of the haystack.
+    ///
+    /// A cheap O(haystack) subsequence pre-check rejects the common non-match case
+    /// before any array allocation or DP work, so this stays fast even when most
+    /// candidates fail.
+    static func fuzzyMatch(
+        needle: [Character],
+        haystackLower: String,
+        haystackOriginal: String,
+        maxLength: Int
+    ) -> (score: Int, indices: [Int])? {
+        let queryLength = needle.count
+        guard queryLength > 0 else { return nil }
+
+        // Cheap subsequence pre-check on the String — no allocation for non-matches.
+        var matched = 0
+        var haystackLength = 0
+        for ch in haystackLower {
+            haystackLength += 1
+            if matched < queryLength, ch == needle[matched] {
+                matched += 1
+            }
+        }
+        guard matched == queryLength else { return nil }
+        guard haystackLength <= maxLength, queryLength <= haystackLength else { return nil }
+
+        let hayLower = Array(haystackLower)
+        let hayOriginal = Array(haystackOriginal)
+        // Capital-boundary bonus needs the original casing; only trust it when the fold
+        // preserved the character count (true for ASCII, the overwhelming common case).
+        let bonusChars = hayOriginal.count == hayLower.count ? hayOriginal : hayLower
+
+        var bonus = [Int](repeating: 0, count: haystackLength)
+        for j in 0..<haystackLength {
+            bonus[j] = Self.matchBonus(
+                current: bonusChars[j],
+                previous: j == 0 ? "/" : bonusChars[j - 1]
+            )
+        }
+
+        // Flat row-major DP buffers: D = best score ending in a match at [i][j],
+        // M = best score for needle[0...i] over haystack[0...j].
+        let cellCount = queryLength * haystackLength
+        var dpD = [Int](repeating: Self.scoreMin, count: cellCount)
+        var dpM = [Int](repeating: Self.scoreMin, count: cellCount)
+
+        for i in 0..<queryLength {
+            let rowOffset = i * haystackLength
+            let prevRowOffset = rowOffset - haystackLength
+            let gapScore = (i == queryLength - 1) ? Self.scoreGapTrailing : Self.scoreGapInner
+            var prevScore = Self.scoreMin
+            for j in 0..<haystackLength {
+                let cell = rowOffset + j
+                if needle[i] == hayLower[j] {
+                    var score = Self.scoreMin
+                    if i == 0 {
+                        score = (j * Self.scoreGapLeading) + bonus[j]
+                    } else if j > 0 {
+                        let diag = prevRowOffset + j - 1
+                        score = max(
+                            dpM[diag] + bonus[j],
+                            dpD[diag] + Self.scoreMatchConsecutive
+                        )
+                    }
+                    dpD[cell] = score
+                    prevScore = max(score, prevScore + gapScore)
+                    dpM[cell] = prevScore
+                } else {
+                    dpD[cell] = Self.scoreMin
+                    prevScore = prevScore + gapScore
+                    dpM[cell] = prevScore
+                }
+            }
+        }
+
+        let finalScore = dpM[cellCount - 1]
+
+        // Reconstruct matched positions by walking the DP backwards (fzy `match_positions`).
+        var indices = [Int](repeating: 0, count: queryLength)
+        var matchRequired = false
+        var j = haystackLength - 1
+        var i = queryLength - 1
+        while i >= 0 {
+            let rowOffset = i * haystackLength
+            while j >= 0 {
+                let cell = rowOffset + j
+                if dpD[cell] != Self.scoreMin,
+                   matchRequired || dpD[cell] == dpM[cell] {
+                    if i > 0, j > 0 {
+                        let diag = (i - 1) * haystackLength + j - 1
+                        matchRequired = dpM[cell] == dpD[diag] + Self.scoreMatchConsecutive
+                    } else {
+                        matchRequired = false
+                    }
+                    indices[i] = j
+                    j -= 1
+                    break
+                }
+                j -= 1
+            }
+            i -= 1
+        }
+
+        return (finalScore, indices)
+    }
+
+    private static func matchBonus(current: Character, previous: Character) -> Int {
+        switch previous {
+        case "/":
+            return Self.scoreMatchSlash
+        case "-", "_", " ":
+            return Self.scoreMatchWord
+        case ".":
+            return Self.scoreMatchDot
+        default:
+            if current.isUppercase, previous.isLowercase {
+                return Self.scoreMatchCapital
+            }
+            return 0
+        }
     }
 
     /// Lowercasing can change the unicode-scalar count for some characters (e.g. ß → ss).

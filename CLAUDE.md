@@ -198,6 +198,14 @@ tail -f "$(cat /tmp/cmux-last-debug-log-path 2>/dev/null || echo /tmp/cmux-debug
 - Focus events: `focus.panel`, `focus.bonsplit`, `focus.firstResponder`, `focus.moveFocus`
 - Bonsplit events: `tab.select`, `tab.close`, `tab.dragStart`, `tab.drop`, `pane.focus`, `pane.drop`, `divider.dragStart`
 
+## Pull request policy
+
+- Always open pull requests against the fork `philip-zhan/cmux`, never against the upstream source repo (`manaflow-ai/cmux`). When running `gh pr create`, pass `--repo philip-zhan/cmux` (and `--head philip-zhan:<branch>` if needed) so the PR targets the fork's `main`.
+
+## Planning policy
+
+- Whenever you exit planning mode, save the approved plan as a Markdown file under `docs/plans/` (e.g. `docs/plans/<short-slug>-plan.md`) before starting implementation. Include the plan's goal, approach, and step list so it stays as a durable record.
+
 ## Regression test commit policy
 
 When adding a regression test for a bug fix, use a two-commit structure so CI proves the test catches the bug:
