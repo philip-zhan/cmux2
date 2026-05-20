@@ -1,5 +1,10 @@
 # cmux agent notes
 
+## Fork
+
+This repository is a fork. All edits, commits, branches, and pull requests must go to
+<https://github.com/philip-zhan/cmux2>, never the upstream source repo (`manaflow-ai/cmux`).
+
 ## Initial setup
 
 Run the setup script to initialize submodules and build GhosttyKit:
@@ -200,7 +205,7 @@ tail -f "$(cat /tmp/cmux-last-debug-log-path 2>/dev/null || echo /tmp/cmux-debug
 
 ## Pull request policy
 
-- Always open pull requests against the fork `philip-zhan/cmux`, never against the upstream source repo (`manaflow-ai/cmux`). When running `gh pr create`, pass `--repo philip-zhan/cmux` (and `--head philip-zhan:<branch>` if needed) so the PR targets the fork's `main`.
+- Always open pull requests against the fork `philip-zhan/cmux2`, never against the upstream source repo (`manaflow-ai/cmux`). When running `gh pr create`, pass `--repo philip-zhan/cmux2` (and `--head philip-zhan:<branch>` if needed) so the PR targets the fork's `main`.
 
 ## Planning policy
 
