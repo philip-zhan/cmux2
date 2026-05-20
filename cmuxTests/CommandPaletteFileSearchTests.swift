@@ -43,6 +43,18 @@ final class CommandPaletteFileSearchTests: XCTestCase {
         )
     }
 
+    func testDefaultModeSearchesFilesWithoutPrefix() {
+        XCTAssertEqual(CommandPaletteFileSearchSettings.defaultMode, .switcherPrefixed)
+        XCTAssertEqual(
+            ContentView.commandPaletteListScope(for: "", mode: CommandPaletteFileSearchSettings.defaultMode).rawValue,
+            "files"
+        )
+        XCTAssertEqual(
+            ContentView.commandPaletteListScope(for: "readme", mode: CommandPaletteFileSearchSettings.defaultMode).rawValue,
+            "files"
+        )
+    }
+
     // MARK: - Settings configuration review
 
     // Regression: the command palette file search mode settings row referenced a
