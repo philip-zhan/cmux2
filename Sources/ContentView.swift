@@ -1113,6 +1113,7 @@ struct ContentView: View {
     @State private var cachedCommandPaletteFingerprint: Int?
     @State private var commandPalettePendingDismissFocusTarget: CommandPaletteRestoreFocusTarget?
     @State private var commandPaletteRestoreTimeoutWorkItem: DispatchWorkItem?
+    @State private var didIssueCommandPaletteFocusRestoreTabSelection = false
     @State private var commandPalettePendingTextSelectionBehavior: CommandPaletteTextSelectionBehavior?
     @State private var commandPaletteSearchTask: Task<Void, Never>?
     @State private var commandPaletteSearchRequestID: UInt64 = 0
@@ -9010,35 +9011,51 @@ struct ContentView: View {
 
     private func requestCommandPaletteFocusRestore(target: CommandPaletteRestoreFocusTarget) {
         commandPalettePendingDismissFocusTarget = target
+        didIssueCommandPaletteFocusRestoreTabSelection = false
         commandPaletteRestoreTimeoutWorkItem?.cancel()
         let timeoutWork = DispatchWorkItem {
-            commandPalettePendingDismissFocusTarget = nil
-            commandPaletteRestoreTimeoutWorkItem = nil
+            clearCommandPaletteFocusRestoreState()
         }
         commandPaletteRestoreTimeoutWorkItem = timeoutWork
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: timeoutWork)
         attemptCommandPaletteFocusRestoreIfNeeded()
     }
 
+    private func clearCommandPaletteFocusRestoreState() {
+        commandPalettePendingDismissFocusTarget = nil
+        commandPaletteRestoreTimeoutWorkItem?.cancel()
+        commandPaletteRestoreTimeoutWorkItem = nil
+        didIssueCommandPaletteFocusRestoreTabSelection = false
+    }
+
     private func attemptCommandPaletteFocusRestoreIfNeeded() {
         guard !isCommandPalettePresented else { return }
         guard let target = commandPalettePendingDismissFocusTarget else { return }
         guard tabManager.tabs.contains(where: { $0.id == target.workspaceId }) else {
-            commandPalettePendingDismissFocusTarget = nil
-            commandPaletteRestoreTimeoutWorkItem?.cancel()
-            commandPaletteRestoreTimeoutWorkItem = nil
+            clearCommandPaletteFocusRestoreState()
             return
         }
 
         if let window = observedWindow, !window.isKeyWindow {
             window.makeKeyAndOrderFront(nil)
         }
-        tabManager.focusTab(
-            target.workspaceId,
-            surfaceId: target.panelId,
-            suppressFlash: true,
-            dismissRestoredUnreadOnResume: true
-        )
+
+        // `focusTab` posts focus notifications (.ghosttyDidFocusSurface and
+        // friends) whose SwiftUI-queued delivery re-enters this method. Issue
+        // the tab selection at most once per restore request — otherwise a
+        // `restoreFocusIntent` that keeps failing (e.g. an editor panel whose
+        // focus endpoint isn't ready) re-selects the same tab on every
+        // re-entry and spins the main thread forever, starving the 0.5s
+        // restore-timeout work item.
+        if !didIssueCommandPaletteFocusRestoreTabSelection {
+            didIssueCommandPaletteFocusRestoreTabSelection = true
+            tabManager.focusTab(
+                target.workspaceId,
+                surfaceId: target.panelId,
+                suppressFlash: true,
+                dismissRestoredUnreadOnResume: true
+            )
+        }
 
         guard let context = focusedPanelContext,
               context.workspace.id == target.workspaceId,
@@ -9046,9 +9063,7 @@ struct ContentView: View {
             return
         }
         guard context.panel.restoreFocusIntent(target.intent) else { return }
-        commandPalettePendingDismissFocusTarget = nil
-        commandPaletteRestoreTimeoutWorkItem?.cancel()
-        commandPaletteRestoreTimeoutWorkItem = nil
+        clearCommandPaletteFocusRestoreState()
     }
 
 #if DEBUG
