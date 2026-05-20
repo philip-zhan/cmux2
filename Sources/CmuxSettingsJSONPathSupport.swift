@@ -61,6 +61,7 @@ extension CmuxSettingsFileStore {
         "app.warnBeforeClosingTab",
         "app.renameSelectsExistingName",
         "app.commandPaletteSearchesAllSurfaces",
+        "app.commandPaletteFileSearchMode",
         "terminal.showScrollBar",
         "terminal.autoResumeAgentSessions",
         "notifications.dockBadge",
