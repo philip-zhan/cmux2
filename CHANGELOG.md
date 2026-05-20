@@ -2,6 +2,11 @@
 
 All notable changes to cmux are documented here.
 
+## [1.64.10] - 2026-05-20
+
+### Changed
+- Default markdown panels to edit-source mode
+
 ## [1.64.9] - 2026-05-20
 
 ### Changed
