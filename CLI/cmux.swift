@@ -26276,7 +26276,7 @@ export default function cmuxPiSessionExtension(pi: ExtensionAPI) {
 
           \(bold)\u{2318}N\(reset)\(subdued)                  New workspace\(reset)
           \(bold)\u{2318}T\(reset)\(subdued)                  New tab\(reset)
-          \(bold)\u{2318}P\(reset)\(subdued)                  Go to workspace\(reset)
+          \(bold)\u{2318}P\(reset)\(subdued)                  Quick file open\(reset)
           \(bold)\u{2318}B\(reset)\(subdued)                  Toggle Left Sidebar\(reset)
           \(bold)\u{2318}\u{2325}B\(reset)\(subdued)                 Toggle Right Sidebar\(reset)
           \(bold)\u{2318}D\(reset)\(subdued)                  Split right\(reset)
