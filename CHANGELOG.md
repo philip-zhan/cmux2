@@ -2,6 +2,19 @@
 
 All notable changes to cmux are documented here.
 
+## [1.64.11] - 2026-05-20
+
+### Added
+- Add a right sidebar toggle button to the titlebar controls
+- Add find-and-replace support to the code viewer search widget
+
+### Changed
+- Redesign the code viewer find widget as a compact, floating VS Code-style panel
+- Show the quick file open shortcut on the welcome screen
+
+### Fixed
+- Reload the file preview editor automatically when the file changes on disk
+
 ## [1.64.10] - 2026-05-20
 
 ### Changed
