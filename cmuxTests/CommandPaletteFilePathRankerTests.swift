@@ -144,4 +144,55 @@ final class CommandPaletteFilePathRankerTests: XCTestCase {
         )
         XCTAssertTrue(matches.isEmpty)
     }
+
+    func testFuzzyQueryMatchesAcrossSeparators() {
+        for separator in ["-", ".", "_", " "] {
+            let candidates = [candidate("src/foo\(separator)bar.swift")]
+            let matches = CommandPaletteFilePathRanker.rank(
+                query: "foobar",
+                candidates: candidates,
+                limit: 10
+            )
+            XCTAssertEqual(
+                matches.first?.id,
+                "file:src/foo\(separator)bar.swift",
+                "expected fuzzy match across '\(separator)'"
+            )
+        }
+    }
+
+    func testFuzzyMatchHighlightsSpanGaps() {
+        let candidates = [candidate("src/foo-bar.swift")]
+        let matches = CommandPaletteFilePathRanker.rank(
+            query: "foobar",
+            candidates: candidates,
+            limit: 10
+        )
+        XCTAssertEqual(matches.count, 1)
+        // "foo-bar.swift": f,o,o at 0,1,2 and b,a,r at 4,5,6 (the '-' at 3 is skipped).
+        XCTAssertEqual(matches.first?.fileNameMatchIndices, Set([0, 1, 2, 4, 5, 6]))
+    }
+
+    func testSubstringMatchOutranksFuzzyMatch() {
+        let candidates = [
+            candidate("src/foo-bar.swift"),
+            candidate("src/foobar.swift"),
+        ]
+        let matches = CommandPaletteFilePathRanker.rank(
+            query: "foobar",
+            candidates: candidates,
+            limit: 10
+        )
+        XCTAssertEqual(matches.first?.id, "file:src/foobar.swift")
+    }
+
+    func testFuzzyNonSubsequenceQueryReturnsNothing() {
+        let candidates = [candidate("src/foo-bar.swift")]
+        let matches = CommandPaletteFilePathRanker.rank(
+            query: "rabof",
+            candidates: candidates,
+            limit: 10
+        )
+        XCTAssertTrue(matches.isEmpty)
+    }
 }
