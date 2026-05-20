@@ -2,7 +2,7 @@
 
 All notable changes to cmux are documented here.
 
-## [1.65.0] - 2026-05-19
+## [1.64.8] - 2026-05-19
 
 ### Changed
 - Use the CodeMirror viewer for the markdown panel's TextEdit mode
