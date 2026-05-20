@@ -2,6 +2,11 @@
 
 All notable changes to cmux are documented here.
 
+## [1.64.9] - 2026-05-20
+
+### Changed
+- Ship the app as cmux2 so it can be installed and run alongside a stock cmux without sharing its control socket
+
 ## [1.64.8] - 2026-05-19
 
 ### Changed
