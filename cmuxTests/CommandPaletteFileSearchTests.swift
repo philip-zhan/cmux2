@@ -43,6 +43,15 @@ final class CommandPaletteFileSearchTests: XCTestCase {
         )
     }
 
+    // MARK: - Settings configuration review
+
+    // Regression: the command palette file search mode settings row referenced a
+    // cmux.json path that was missing from supportedSettingsJSONPaths, so opening
+    // Settings tripped the validate() precondition and crashed the app.
+    func testFileSearchModeSettingsRowConfigurationReviewDoesNotTrap() {
+        SettingsConfigurationReview.json("app.commandPaletteFileSearchMode").validate()
+    }
+
     // MARK: - commandPaletteFileRankerCandidates
 
     private func makeSnapshot(_ paths: [String]) -> CommandPaletteFileIndexSnapshot {
