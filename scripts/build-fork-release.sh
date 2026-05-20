@@ -19,7 +19,7 @@ set -euo pipefail
 #   SPARKLE_PRIVATE_KEY          base64 Sparkle EdDSA private key (see below)
 #
 # Optional env:
-#   CMUX_FORK_REPO          GitHub repo to publish to (default: philip-zhan/cmux)
+#   CMUX_FORK_REPO          GitHub repo to publish to (default: philip-zhan/cmux2)
 #   CMUX_FORK_SIGN_IDENTITY codesign identity
 #                           (default: Developer ID Application: Draft Technologies Ltd (D22PZDCXY5))
 #
@@ -32,7 +32,7 @@ usage() { echo "Usage: ./scripts/build-fork-release.sh <tag>" >&2; }
 if [[ $# -ne 1 ]]; then usage; exit 1; fi
 TAG="$1"
 
-REPO="${CMUX_FORK_REPO:-philip-zhan/cmux}"
+REPO="${CMUX_FORK_REPO:-philip-zhan/cmux2}"
 SIGN_IDENTITY="${CMUX_FORK_SIGN_IDENTITY:-Developer ID Application: Draft Technologies Ltd (D22PZDCXY5)}"
 ENTITLEMENTS="cmux.fork.entitlements"
 # The fork build ships as "cmux2" with its own bundle identifier so it can be
