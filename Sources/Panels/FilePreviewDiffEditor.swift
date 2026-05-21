@@ -1,10 +1,12 @@
 import AppKit
 import SwiftUI
 
-/// Read-only side-by-side diff view for a `FilePreviewPanel` opened with
+/// Side-by-side diff view for a `FilePreviewPanel` opened with
 /// `diffAgainstHead`. Drives the same `CodeWebRenderer` as the editable code
-/// editor, but feeds it the HEAD and working-tree blobs so the bundled
-/// CodeMirror `MergeView` renders the diff.
+/// editor, feeding it the HEAD and working-tree blobs so the bundled CodeMirror
+/// `MergeView` renders the diff. The HEAD pane stays read-only; the
+/// working-tree pane is editable and saves through the panel's shared
+/// text-editing machinery.
 struct FilePreviewDiffEditor<PanelModel>: View
 where PanelModel: ObservableObject & CodeMirrorEditingPanel {
     @ObservedObject var panel: PanelModel
@@ -21,7 +23,7 @@ where PanelModel: ObservableObject & CodeMirrorEditingPanel {
             languageId: CodeViewerLanguageDetector.languageId(forPath: panel.filePath),
             theme: theme,
             fontSize: 13,
-            isReadOnly: true,
+            isReadOnly: false,
             diffOriginal: diffOriginal,
             diffModified: diffModified,
             backgroundColor: rendererBackgroundColor,
@@ -30,8 +32,8 @@ where PanelModel: ObservableObject & CodeMirrorEditingPanel {
             filePath: panel.filePath,
             session: panel.codeRendererSession,
             onRequestPanelFocus: { panel.noteCodeEditorPointerFocus() },
-            onSaveRequested: {},
-            onContentChanged: { _ in },
+            onSaveRequested: handleSaveRequested,
+            onContentChanged: { panel.updateTextContent($0) },
             onFontSizeChanged: { _ in }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -39,6 +41,19 @@ where PanelModel: ObservableObject & CodeMirrorEditingPanel {
         .opacity(isVisibleInUI ? 1 : 0)
         .allowsHitTesting(isVisibleInUI)
         .accessibilityHidden(!isVisibleInUI)
+    }
+
+    private func handleSaveRequested() {
+        // The save chord fires immediately, but the JS bridge debounces
+        // `contentChanged` by 120ms. Pull the live working-tree document from
+        // the merge editor before saving so we never persist a stale snapshot.
+        let session = panel.codeRendererSession
+        Task { @MainActor in
+            if let latest = await session.currentDocument() {
+                panel.updateTextContent(latest)
+            }
+            _ = panel.saveTextContent()
+        }
     }
 
     private var rendererBackgroundColor: NSColor {
