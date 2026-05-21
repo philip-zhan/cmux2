@@ -172,15 +172,18 @@ final class SourceControlStore: ObservableObject {
 
     private func startWatching(repoRoot: String) {
         stopWatching()
-        // `.git` catches index/HEAD changes (stage, commit, checkout, branch
-        // switch). The repo root catches new top-level files. Working-tree
-        // edits deeper in the tree rely on the manual refresh and the
-        // refresh-on-appear hook.
-        let gitDir = (repoRoot as NSString).appendingPathComponent(".git")
+        // Watch the reflog, not the whole `.git` directory: `git status`
+        // rewrites `.git/index`, so watching `.git` would make every refresh
+        // re-trigger itself in an endless loop. `.git/logs/HEAD` is appended
+        // only by ref-moving operations (commit, checkout, reset, merge) and
+        // is never touched by `git status`. The repo root catches new
+        // top-level files. Deeper working-tree edits and stage-only changes
+        // rely on the manual refresh and the refresh-on-appear hook.
+        let reflog = (repoRoot as NSString).appendingPathComponent(".git/logs/HEAD")
         let gitWatcher = FileExplorerDirectoryWatcher { [weak self] in
             self?.refresh()
         }
-        gitWatcher.watch(path: gitDir)
+        gitWatcher.watch(path: reflog)
         gitDirWatcher = gitWatcher
 
         let rootWatcher = FileExplorerDirectoryWatcher { [weak self] in

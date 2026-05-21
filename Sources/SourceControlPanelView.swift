@@ -114,7 +114,6 @@ struct SourceControlPanelView: View {
             }
             .buttonStyle(.plain)
             .foregroundColor(.secondary)
-            .disabled(store.isLoading)
             .help(String(localized: "sourceControl.refresh.tooltip", defaultValue: "Refresh"))
             .accessibilityIdentifier("SourceControlPanel.refreshButton")
         }
