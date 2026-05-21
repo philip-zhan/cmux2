@@ -12,6 +12,7 @@ private func rightSidebarDebugResponder(_ responder: NSResponder?) -> String {
 nonisolated enum RightSidebarMode: String, CaseIterable, Codable, Sendable {
     case files
     case find
+    case sourceControl
     case sessions
     case feed
     case dock
@@ -20,6 +21,7 @@ nonisolated enum RightSidebarMode: String, CaseIterable, Codable, Sendable {
         switch self {
         case .files: return String(localized: "rightSidebar.mode.files", defaultValue: "Files")
         case .find: return String(localized: "rightSidebar.mode.find", defaultValue: "Find")
+        case .sourceControl: return String(localized: "rightSidebar.mode.sourceControl", defaultValue: "Source Control")
         case .sessions: return String(localized: "rightSidebar.mode.sessions", defaultValue: "Vault")
         case .feed: return String(localized: "rightSidebar.mode.feed", defaultValue: "Feed")
         case .dock: return String(localized: "rightSidebar.mode.dock", defaultValue: "Dock")
@@ -30,6 +32,7 @@ nonisolated enum RightSidebarMode: String, CaseIterable, Codable, Sendable {
         switch self {
         case .files: return "folder"
         case .find: return "magnifyingglass"
+        case .sourceControl: return "arrow.triangle.branch"
         case .sessions: return "books.vertical"
         case .feed: return "dot.radiowaves.left.and.right"
         case .dock: return "dock.rectangle"
@@ -40,6 +43,7 @@ nonisolated enum RightSidebarMode: String, CaseIterable, Codable, Sendable {
         switch self {
         case .files: return .switchRightSidebarToFiles
         case .find: return .switchRightSidebarToFind
+        case .sourceControl: return .switchRightSidebarToSourceControl
         case .sessions: return .switchRightSidebarToSessions
         case .feed: return .switchRightSidebarToFeed
         case .dock: return .switchRightSidebarToDock
@@ -63,6 +67,9 @@ extension RightSidebarMode {
         }
         if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToFind).matches(event: event) {
             return .find
+        }
+        if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToSourceControl).matches(event: event) {
+            return .sourceControl
         }
         if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToSessions).matches(event: event) {
             return .sessions
@@ -155,6 +162,7 @@ struct RightSidebarPanelView: View {
     let workspaceId: UUID?
     let onResumeSession: ((SessionEntry) -> Void)?
     let onOpenFilePreview: (String) -> Void
+    let onOpenFileDiff: (String) -> Void
     let onOpenAsPane: (RightSidebarMode) -> Void
     let onClose: () -> Void
 
@@ -378,6 +386,12 @@ struct RightSidebarPanelView: View {
                 state: fileExplorerState,
                 onOpenFilePreview: onOpenFilePreview,
                 presentation: .find
+            )
+        case .sourceControl:
+            SourceControlPanelView(
+                directory: sessionIndexDirectory,
+                onOpenDiff: onOpenFileDiff,
+                onOpenFile: onOpenFilePreview
             )
         case .sessions:
             SessionIndexView(store: sessionIndexStore, onResume: onResumeSession)

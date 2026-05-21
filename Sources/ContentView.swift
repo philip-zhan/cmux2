@@ -2207,6 +2207,9 @@ struct ContentView: View {
             onOpenFilePreview: { filePath in
                 openFilePreviewFromSidebar(filePath: filePath)
             },
+            onOpenFileDiff: { filePath in
+                openFileDiffFromSidebar(filePath: filePath)
+            },
             onOpenAsPane: { mode in
                 openRightSidebarToolPane(mode)
             },
@@ -2495,6 +2498,21 @@ struct ContentView: View {
 
         sidebarSelectionState.selection = .tabs
         _ = workspace.openFileSurfaces(
+            inPane: paneId,
+            filePaths: [filePath],
+            focus: true,
+            reuseExisting: true
+        )
+    }
+
+    private func openFileDiffFromSidebar(filePath: String) {
+        guard let workspace = tabManager.selectedWorkspace else { return }
+        guard let paneId = workspace.bonsplitController.focusedPaneId ?? workspace.bonsplitController.allPaneIds.first else {
+            return
+        }
+
+        sidebarSelectionState.selection = .tabs
+        _ = workspace.openFileDiffSurfaces(
             inPane: paneId,
             filePaths: [filePath],
             focus: true,

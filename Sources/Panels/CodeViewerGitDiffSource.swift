@@ -20,14 +20,17 @@ enum CodeViewerGitDiffSource {
 
     private static func loadSync(filePath: String) -> Diff? {
         let fileURL = URL(fileURLWithPath: filePath).standardizedFileURL
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
+        let fileExists = FileManager.default.fileExists(atPath: fileURL.path)
 
         guard let repoRoot = repoRoot(for: fileURL) else { return nil }
         let relPath = relativePath(of: fileURL, from: repoRoot)
         guard !relPath.isEmpty else { return nil }
 
         let original = (try? gitShow(repoRoot: repoRoot, ref: "HEAD", path: relPath)) ?? ""
-        let modified = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
+        let modified = fileExists ? ((try? String(contentsOf: fileURL, encoding: .utf8)) ?? "") : ""
+        // A deleted file (no working copy) is still diffable as long as HEAD
+        // had it; bail only when neither side has content to show.
+        guard fileExists || !original.isEmpty else { return nil }
         return Diff(original: original, modified: modified)
     }
 

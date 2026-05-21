@@ -1080,6 +1080,8 @@ struct SessionMarkdownPanelSnapshot: Codable, Sendable {
 
 struct SessionFilePreviewPanelSnapshot: Codable, Sendable {
     var filePath: String
+    /// When true the panel was opened as a working-tree diff against HEAD.
+    var diffAgainstHead: Bool?
 }
 
 struct SessionRightSidebarToolPanelSnapshot: Codable, Sendable {

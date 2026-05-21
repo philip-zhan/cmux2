@@ -55,6 +55,23 @@ final class CodeViewerGitDiffSourceTests: XCTestCase {
         XCTAssertEqual(diff.modified, "fresh\n")
     }
 
+    func testReportsHeadOriginalForDeletedFile() async throws {
+        try initRepo()
+        let path = tempDir.appendingPathComponent("doomed.txt")
+        try "keep me\n".write(to: path, atomically: true, encoding: .utf8)
+        try runGit(["add", "doomed.txt"])
+        try runGit(["commit", "-m", "init"])
+
+        // Delete the working-tree copy: the diff should still show the HEAD
+        // blob on the original side and an empty modified side.
+        try FileManager.default.removeItem(at: path)
+
+        let loaded = await CodeViewerGitDiffSource.load(filePath: path.path)
+        let diff = try XCTUnwrap(loaded)
+        XCTAssertEqual(diff.original, "keep me\n")
+        XCTAssertEqual(diff.modified, "")
+    }
+
     // MARK: helpers
 
     private func initRepo() throws {
