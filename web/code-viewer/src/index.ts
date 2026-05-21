@@ -550,6 +550,7 @@ function mountDiff(parent: HTMLElement, original: string, modified: string) {
     revertControls: "b-to-a",
     highlightChanges: true,
     gutter: true,
+    diffConfig: { scanLimit: 500 },
   });
 }
 
