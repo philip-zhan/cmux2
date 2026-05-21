@@ -996,6 +996,12 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
                 self.diffOriginal = diff.original
                 self.diffModified = diff.modified
                 self.diffUnavailable = false
+                // Seed the shared edit buffers with the working-tree side so
+                // the dirty-tracking and save machinery works when the diff's
+                // editable (b) pane is modified.
+                self.textContent = diff.modified
+                self.originalTextContent = diff.modified
+                self.isDirty = false
             } else {
                 self.diffOriginal = nil
                 self.diffModified = nil
@@ -1241,6 +1247,11 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
                 self.originalTextContent = currentContent
                 self.isDirty = self.textContent != currentContent
                 self.isFileUnavailable = false
+                // Keep the diff baseline in sync so the file-watch reload that
+                // follows our own write is a no-op (equal payload, no remount).
+                if self.diffAgainstHead {
+                    self.diffModified = currentContent
+                }
             case .failed(let fileExists):
                 self.isFileUnavailable = !fileExists
             }
@@ -1271,6 +1282,10 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
     private func reloadFromWatchedFileChange() {
         guard !isClosed, previewMode == .text else { return }
         if diffAgainstHead {
+            // Unsaved edits in the diff's working-tree pane win over an
+            // external write, mirroring the non-diff editor: don't reload the
+            // diff (which would remount and discard the buffer).
+            guard !isDirty else { return }
             loadDiffContent()
             return
         }

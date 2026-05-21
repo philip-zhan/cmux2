@@ -64,11 +64,25 @@ enum CodeViewerGitDiffSource {
         process.standardOutput = stdout
         process.standardError = stderr
         try process.run()
+
+        // Drain both pipes before waiting on the process. macOS pipe buffers
+        // are ~64KB; `git show` on a large file overflows that, blocks on the
+        // write, and deadlocks against `waitUntilExit()` if we wait first.
+        var outData = Data()
+        let drainQueue = DispatchQueue(label: "com.cmux.git-diff.pipe", attributes: .concurrent)
+        let group = DispatchGroup()
+        drainQueue.async(group: group) {
+            outData = stdout.fileHandleForReading.readDataToEndOfFile()
+        }
+        drainQueue.async(group: group) {
+            _ = stderr.fileHandleForReading.readDataToEndOfFile()
+        }
+        group.wait()
         process.waitUntilExit()
+
         guard process.terminationStatus == 0 else {
             throw NSError(domain: "CodeViewerGitDiffSource", code: Int(process.terminationStatus))
         }
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
-        return String(data: data, encoding: .utf8) ?? ""
+        return String(data: outData, encoding: .utf8) ?? ""
     }
 }

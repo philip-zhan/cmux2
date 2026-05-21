@@ -550,6 +550,7 @@ function mountDiff(parent: HTMLElement, original: string, modified: string) {
     revertControls: "b-to-a",
     highlightChanges: true,
     gutter: true,
+    diffConfig: { scanLimit: 1000 },
   });
 }
 
@@ -625,7 +626,11 @@ function applyTheme(isDark: boolean, palette?: ThemePalette) {
 function applyReadOnly(readOnly: boolean) {
   const effects = readOnlyCompartment.reconfigure(EditorState.readOnly.of(readOnly));
   editor?.dispatch({ effects });
-  mergeView?.a.dispatch({ effects });
+  // The original/HEAD side of a diff is never editable; only the working-tree
+  // side (b) honors the panel's read-only flag.
+  mergeView?.a.dispatch({
+    effects: readOnlyCompartment.reconfigure(EditorState.readOnly.of(true)),
+  });
   mergeView?.b.dispatch({ effects });
 }
 
