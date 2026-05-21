@@ -84,7 +84,13 @@ final class CommandPaletteFileIndexer: ObservableObject {
 
     /// Begin (or reuse) an index build for `rootPath`. If the root matches the active
     /// request and a build is in flight or complete, this is a no-op.
-    func requestIndex(forRootPath rootPath: String) {
+    ///
+    /// Pass `forceRefresh: true` to rebuild even when a `.ready` snapshot already
+    /// exists for the same root. The corpus is built once and cached, so files
+    /// created after the first build (typically untracked, just-added files) would
+    /// otherwise never appear until the workspace root changes. Callers force a
+    /// rebuild once per command-palette open to pick those up.
+    func requestIndex(forRootPath rootPath: String, forceRefresh: Bool = false) {
         let trimmed = rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             cancel(reason: .cancelled)
@@ -96,7 +102,7 @@ final class CommandPaletteFileIndexer: ObservableObject {
         if activeRequest == request, process?.isRunning == true {
             return
         }
-        if activeRequest == request, currentSnapshot.status == .ready {
+        if !forceRefresh, activeRequest == request, currentSnapshot.status == .ready {
             return
         }
 
