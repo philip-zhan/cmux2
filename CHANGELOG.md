@@ -2,6 +2,11 @@
 
 All notable changes to cmux are documented here.
 
+## [1.64.12] - 2026-05-20
+
+### Fixed
+- Fix an app freeze when pressing Cmd+R while focused on an editor panel
+
 ## [1.64.11] - 2026-05-20
 
 ### Added
