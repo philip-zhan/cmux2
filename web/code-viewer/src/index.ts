@@ -21,7 +21,7 @@ import {
   searchKeymap,
   setSearchQuery,
 } from "@codemirror/search";
-import { StreamLanguage } from "@codemirror/language";
+import { StreamLanguage, forceParsing } from "@codemirror/language";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
@@ -562,6 +562,36 @@ function applyLanguage(id: string | undefined) {
   mergeView?.b.dispatch({ effects });
 }
 
+// CodeMirror parses syntax lazily around the viewport with a time budget, so
+// scrolling faster than the parser advances briefly shows unhighlighted text.
+// After a document is mounted we walk its whole length in idle slices, forcing
+// the syntax tree ahead of the user so any scroll target is already highlighted.
+const BG_PARSE_BUDGET_MS = 60;
+let bgParseGeneration = 0;
+
+function backgroundParse(view: EditorView, generation: number) {
+  const idle: (cb: () => void) => void =
+    typeof window.requestIdleCallback === "function"
+      ? (cb) => window.requestIdleCallback(cb)
+      : (cb) => window.setTimeout(cb, 16);
+  const step = () => {
+    // A newer mount (or language change) supersedes this pass.
+    if (generation !== bgParseGeneration || !view.dom.isConnected) return;
+    const done = forceParsing(view, view.state.doc.length, BG_PARSE_BUDGET_MS);
+    if (!done) idle(step);
+  };
+  idle(step);
+}
+
+function kickBackgroundParse() {
+  const generation = ++bgParseGeneration;
+  if (editor) backgroundParse(editor, generation);
+  if (mergeView) {
+    backgroundParse(mergeView.a, generation);
+    backgroundParse(mergeView.b, generation);
+  }
+}
+
 function paletteTheme(palette: ThemePalette): Extension {
   return EditorView.theme(
     {
@@ -672,6 +702,7 @@ window.__cmuxCodeApply = function (payload) {
   applyTheme(!!p.isDark, p.theme);
   applyFontSize(p.fontSize ?? 13);
   applyReadOnly(!!p.readOnly);
+  kickBackgroundParse();
 };
 
 window.__cmuxCodeGet = function () {
