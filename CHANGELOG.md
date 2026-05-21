@@ -2,6 +2,16 @@
 
 All notable changes to cmux are documented here.
 
+## [1.64.14] - 2026-05-21
+
+### Added
+- Edit files directly in the diff view's working-tree pane
+
+### Fixed
+- Keep syntax highlighting visible in the code viewer when scrolling quickly
+- Fix the diff view hanging when opening large files
+- Fix Source Control "Open File" reusing an already-open diff panel
+
 ## [1.64.13] - 2026-05-21
 
 ### Added
