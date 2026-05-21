@@ -2,6 +2,14 @@
 
 All notable changes to cmux are documented here.
 
+## [1.64.13] - 2026-05-21
+
+### Added
+- Add a Source Control tab to the right sidebar
+
+### Fixed
+- Fix the Source Control reload button blinking from a refresh loop
+
 ## [1.64.12] - 2026-05-20
 
 ### Fixed
