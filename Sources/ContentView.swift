@@ -1088,6 +1088,9 @@ struct ContentView: View {
     @State private var isSidebarResizerCursorActive = false
     @State private var sidebarResizerCursorStabilizer: DispatchSourceTimer?
     @State private var isCommandPalettePresented = false
+    /// Whether the file index has been force-rebuilt since the palette opened.
+    /// Reset on every open so the first `.files` search picks up new files.
+    @State private var commandPaletteDidForceFileIndexRefresh = false
     @State private var commandPaletteQuery: String = ""
     @State private var commandPaletteMode: CommandPaletteMode = .commands
     @State private var commandPaletteRenameDraft: String = ""
@@ -5726,13 +5729,19 @@ struct ContentView: View {
     /// Asks `CommandPaletteFileIndexer` to (re)index the focused workspace's root if
     /// the `.files` scope is active. No-ops in any other scope so we don't spawn `fd`
     /// for users who never engage file search.
+    ///
+    /// The first `.files`-scope request after the palette opens forces a rebuild so
+    /// files created since the last build (untracked, just-added files) show up.
+    /// Subsequent per-keystroke requests reuse the cached snapshot.
     private func commandPaletteRequestFileIndexIfNeeded(scope: CommandPaletteListScope) {
         guard scope == .files else { return }
         let root = commandPaletteCurrentFileSearchRoot()
         if root.isEmpty {
             commandPaletteFileIndexer.reset()
         } else {
-            commandPaletteFileIndexer.requestIndex(forRootPath: root)
+            let forceRefresh = !commandPaletteDidForceFileIndexRefresh
+            commandPaletteDidForceFileIndexRefresh = true
+            commandPaletteFileIndexer.requestIndex(forRootPath: root, forceRefresh: forceRefresh)
         }
     }
 
@@ -8802,6 +8811,7 @@ struct ContentView: View {
             commandPaletteRestoreFocusTarget = nil
         }
         isCommandPalettePresented = true
+        commandPaletteDidForceFileIndexRefresh = false
         commandPaletteForkableAgentActivePanelKey = nil
         refreshCommandPaletteUsageHistory()
         resetCommandPaletteListState(initialQuery: initialQuery)
