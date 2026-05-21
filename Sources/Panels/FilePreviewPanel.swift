@@ -901,6 +901,9 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
     let id: UUID
     let panelType: PanelType = .filePreview
     let filePath: String
+    /// When true, the text view renders a working-tree diff against HEAD
+    /// instead of an editable file view.
+    let diffAgainstHead: Bool
     private(set) var workspaceId: UUID
     @Published private(set) var displayTitle: String
     @Published private(set) var displayIcon: String?
@@ -920,6 +923,17 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
     /// (NSTextView). Decided once when the panel enters text mode, so flipping
     /// the engine preference applies on the next file open.
     @Published private(set) var usesCodeMirrorEngine = false
+
+    // MARK: - Diff mode
+    //
+    // Populated only when `diffAgainstHead` is true. `diffOriginal` is the
+    // HEAD blob, `diffModified` the working-tree content. `diffUnavailable`
+    // marks a file that git can't diff (not tracked / not in a repo).
+    @Published private(set) var diffOriginal: String?
+    @Published private(set) var diffModified: String?
+    @Published private(set) var isLoadingDiff = false
+    @Published private(set) var diffUnavailable = false
+    private var diffLoadGeneration = 0
 
     let nativeViewSessions = FilePreviewNativeViewSessions()
     private var textEncoding: String.Encoding = .utf8
@@ -946,10 +960,11 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
         URL(fileURLWithPath: filePath)
     }
 
-    init(workspaceId: UUID, filePath: String) {
+    init(workspaceId: UUID, filePath: String, diffAgainstHead: Bool = false) {
         self.id = UUID()
         self.workspaceId = workspaceId
         self.filePath = filePath
+        self.diffAgainstHead = diffAgainstHead
         self.displayTitle = URL(fileURLWithPath: filePath).lastPathComponent
         let fileURL = URL(fileURLWithPath: filePath)
         let initialPreviewMode = FilePreviewKindResolver.initialMode(for: fileURL)
@@ -961,6 +976,32 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
 
         prepareContentForPreviewMode()
         resolvePreviewModeIfNeeded(for: fileURL)
+        if diffAgainstHead {
+            loadDiffContent()
+        }
+    }
+
+    /// Loads the working-tree diff against HEAD. No-op unless `diffAgainstHead`.
+    func loadDiffContent() {
+        guard diffAgainstHead else { return }
+        diffLoadGeneration += 1
+        let generation = diffLoadGeneration
+        let path = filePath
+        isLoadingDiff = true
+        Task { [weak self] in
+            let diff = await CodeViewerGitDiffSource.load(filePath: path)
+            guard let self, self.diffLoadGeneration == generation else { return }
+            self.isLoadingDiff = false
+            if let diff {
+                self.diffOriginal = diff.original
+                self.diffModified = diff.modified
+                self.diffUnavailable = false
+            } else {
+                self.diffOriginal = nil
+                self.diffModified = nil
+                self.diffUnavailable = true
+            }
+        }
     }
 
     func focus() {
@@ -1228,7 +1269,12 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
     /// external write never silently discards the user's work (they resolve
     /// the conflict explicitly via Revert/Save).
     private func reloadFromWatchedFileChange() {
-        guard !isClosed, previewMode == .text, !isDirty else { return }
+        guard !isClosed, previewMode == .text else { return }
+        if diffAgainstHead {
+            loadDiffContent()
+            return
+        }
+        guard !isDirty else { return }
         loadTextContent(replacingDirtyContent: false)
     }
 
@@ -1442,7 +1488,14 @@ struct FilePreviewPanelView: View {
             filePath: panel.filePath,
             foregroundColor: themeForegroundColor
         ) {
-            if panel.previewMode == .text {
+            if panel.diffAgainstHead {
+                PanelHeaderIconButton(
+                    systemName: "arrow.clockwise",
+                    label: String(localized: "filePreview.refreshDiff", defaultValue: "Refresh Diff"),
+                    isDisabled: panel.isLoadingDiff,
+                    action: { panel.loadDiffContent() }
+                )
+            } else if panel.previewMode == .text {
                 PanelHeaderIconButton(
                     systemName: "arrow.counterclockwise",
                     label: String(localized: "filePreview.revert", defaultValue: "Revert"),
@@ -1469,7 +1522,9 @@ struct FilePreviewPanelView: View {
         } else {
             switch panel.previewMode {
             case .text:
-                if panel.usesCodeMirrorEngine {
+                if panel.diffAgainstHead {
+                    diffContent
+                } else if panel.usesCodeMirrorEngine {
                     FilePreviewCodeEditor(
                         panel: panel,
                         isVisibleInUI: isVisibleInUI,
@@ -1516,6 +1571,48 @@ struct FilePreviewPanelView: View {
                 )
             }
         }
+    }
+
+    @ViewBuilder
+    private var diffContent: some View {
+        if panel.diffOriginal != nil || panel.diffModified != nil {
+            FilePreviewDiffEditor(
+                panel: panel,
+                diffOriginal: panel.diffOriginal ?? "",
+                diffModified: panel.diffModified ?? "",
+                isVisibleInUI: isVisibleInUI,
+                themeBackgroundColor: contentBackgroundColor,
+                themeForegroundColor: themeForegroundColor,
+                drawsBackground: appearance.drawsContentBackground
+            )
+        } else if panel.diffUnavailable {
+            diffUnavailableView
+        } else {
+            VStack(spacing: 8) {
+                ProgressView()
+                Text(String(localized: "filePreview.diff.loading", defaultValue: "Loading diff…"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var diffUnavailableView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "arrow.triangle.branch")
+                .font(.system(size: 40))
+                .foregroundStyle(.secondary)
+            Text(String(
+                localized: "filePreview.diff.unavailable",
+                defaultValue: "No diff available — this file is not tracked by Git."
+            ))
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
     }
 
     private var fileUnavailableView: some View {

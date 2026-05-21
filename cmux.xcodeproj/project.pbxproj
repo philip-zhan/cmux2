@@ -85,6 +85,10 @@
 		D0B10016A1B2C3D4E5F60001 /* FilePreviewTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0B10017A1B2C3D4E5F60001 /* FilePreviewTextEditor.swift */; };
 		C0DEC0DEC0DEC0DEC0DE0001 /* CodeMirrorSpike.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0002 /* CodeMirrorSpike.swift */; };
 		C0DEC0DEC0DEC0DEC0DE0017 /* FilePreviewCodeEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0018 /* FilePreviewCodeEditor.swift */; };
+		5C0DE00100000000000A0001 /* SourceControlStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0DE00100000000000A0002 /* SourceControlStore.swift */; };
+		5C0DE00100000000000A0003 /* SourceControlPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0DE00100000000000A0004 /* SourceControlPanelView.swift */; };
+		5C0DE00100000000000A0005 /* FilePreviewDiffEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0DE00100000000000A0006 /* FilePreviewDiffEditor.swift */; };
+		5C0DE00100000000000A0007 /* SourceControlGitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0DE00100000000000A0008 /* SourceControlGitTests.swift */; };
 		C0DEC0DEC0DEC0DEC0DE0003 /* CodeViewerAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0004 /* CodeViewerAssets.swift */; };
 		C0DEC0DEC0DEC0DEC0DE0005 /* code-viewer in Resources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0006 /* code-viewer */; };
 		C0DEC0DEC0DEC0DEC0DE0007 /* CodeWebRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DEC0DEC0DEC0DE0008 /* CodeWebRenderer.swift */; };
@@ -765,6 +769,10 @@
 		C0DEC0DEC0DEC0DEC0DE0014 /* CodeViewerGitDiffSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeViewerGitDiffSourceTests.swift; sourceTree = "<group>"; };
 		C0DEC0DEC0DEC0DEC0DE0016 /* CodePreviewEngineSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodePreviewEngineSettingsTests.swift; sourceTree = "<group>"; };
 		C0DEC0DEC0DEC0DEC0DE0018 /* FilePreviewCodeEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/FilePreviewCodeEditor.swift; sourceTree = "<group>"; };
+		5C0DE00100000000000A0002 /* SourceControlStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceControlStore.swift; sourceTree = "<group>"; };
+		5C0DE00100000000000A0004 /* SourceControlPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceControlPanelView.swift; sourceTree = "<group>"; };
+		5C0DE00100000000000A0006 /* FilePreviewDiffEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/FilePreviewDiffEditor.swift; sourceTree = "<group>"; };
+		5C0DE00100000000000A0008 /* SourceControlGitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceControlGitTests.swift; sourceTree = "<group>"; };
 		A5001451A5001451A5001451 /* FilePreviewNativeBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/FilePreviewNativeBackground.swift; sourceTree = "<group>"; };
 		A5001016 /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = GhosttyKit.xcframework; sourceTree = "<group>"; };
 		A5001017 /* ghostty.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ghostty.h; sourceTree = "<group>"; };
@@ -1453,6 +1461,9 @@
 				C0DEC0DEC0DEC0DEC0DE000E /* CodeViewerGitDiffSource.swift */,
 				C0DEC0DEC0DEC0DEC0DE0010 /* CodePreviewEngineSettings.swift */,
 				C0DEC0DEC0DEC0DEC0DE0018 /* FilePreviewCodeEditor.swift */,
+				5C0DE00100000000000A0002 /* SourceControlStore.swift */,
+				5C0DE00100000000000A0004 /* SourceControlPanelView.swift */,
+				5C0DE00100000000000A0006 /* FilePreviewDiffEditor.swift */,
 				A5001451A5001451A5001451 /* FilePreviewNativeBackground.swift */,
 				A5001442A5001442A5001442 /* FilePreviewModeSupport.swift */,
 				A5001444A5001444A5001444 /* FilePreviewWorkspaceOpenSupport.swift */,
@@ -1649,6 +1660,7 @@
 				D3664001D3664001D3664001 /* MarkdownPanelTests.swift */,
 				C0DEC0DEC0DEC0DEC0DE0012 /* CodeViewerLanguageDetectorTests.swift */,
 				C0DEC0DEC0DEC0DEC0DE0014 /* CodeViewerGitDiffSourceTests.swift */,
+				5C0DE00100000000000A0008 /* SourceControlGitTests.swift */,
 				C0DEC0DEC0DEC0DEC0DE0016 /* CodePreviewEngineSettingsTests.swift */,
 				C0DE31390000000000000104 /* FilePreviewReviewFeedbackTests.swift */,
 				D7AB00000000000000000010 /* AppDelegateMoveTabToNewWorkspaceTests.swift */,
@@ -2211,6 +2223,9 @@
 				C0DEC0DEC0DEC0DEC0DE000D /* CodeViewerGitDiffSource.swift in Sources */,
 				C0DEC0DEC0DEC0DEC0DE000F /* CodePreviewEngineSettings.swift in Sources */,
 				C0DEC0DEC0DEC0DEC0DE0017 /* FilePreviewCodeEditor.swift in Sources */,
+				5C0DE00100000000000A0001 /* SourceControlStore.swift in Sources */,
+				5C0DE00100000000000A0003 /* SourceControlPanelView.swift in Sources */,
+				5C0DE00100000000000A0005 /* FilePreviewDiffEditor.swift in Sources */,
 				A5001450A5001450A5001450 /* FilePreviewNativeBackground.swift in Sources */,
 				A5001443A5001443A5001443 /* FilePreviewModeSupport.swift in Sources */,
 				A5001445A5001445A5001445 /* FilePreviewWorkspaceOpenSupport.swift in Sources */,
@@ -2447,6 +2462,7 @@
 				D3664002D3664002D3664002 /* MarkdownPanelTests.swift in Sources */,
 				C0DEC0DEC0DEC0DEC0DE0011 /* CodeViewerLanguageDetectorTests.swift in Sources */,
 				C0DEC0DEC0DEC0DEC0DE0013 /* CodeViewerGitDiffSourceTests.swift in Sources */,
+				5C0DE00100000000000A0007 /* SourceControlGitTests.swift in Sources */,
 				C0DEC0DEC0DEC0DEC0DE0015 /* CodePreviewEngineSettingsTests.swift in Sources */,
 				C0DE31390000000000000103 /* FilePreviewReviewFeedbackTests.swift in Sources */,
 				D7AB0000000000000000000F /* AppDelegateMoveTabToNewWorkspaceTests.swift in Sources */,

@@ -555,7 +555,10 @@ extension Workspace {
             terminalSnapshot = nil
             browserSnapshot = nil
             markdownSnapshot = nil
-            filePreviewSnapshot = SessionFilePreviewPanelSnapshot(filePath: filePreviewPanel.filePath)
+            filePreviewSnapshot = SessionFilePreviewPanelSnapshot(
+                filePath: filePreviewPanel.filePath,
+                diffAgainstHead: filePreviewPanel.diffAgainstHead ? true : nil
+            )
             rightSidebarToolSnapshot = nil
         case .rightSidebarTool:
             guard let toolPanel = panel as? RightSidebarToolPanel else { return nil }
@@ -1038,7 +1041,8 @@ extension Workspace {
                   let filePreviewPanel = newFilePreviewSurface(
                     inPane: paneId,
                     filePath: filePath,
-                    focus: false
+                    focus: false,
+                    diffAgainstHead: snapshot.filePreview?.diffAgainstHead ?? false
                   ) else {
                 return nil
             }
@@ -11109,6 +11113,74 @@ final class Workspace: Identifiable, ObservableObject {
         return newFilePreviewSurface(inPane: paneId, filePath: filePath, focus: focus)
     }
 
+    /// Opens (or focuses) a file preview panel showing the working-tree diff
+    /// against HEAD. Reuses an existing diff panel for the same path.
+    @discardableResult
+    func openOrFocusFileDiffSurface(
+        inPane paneId: PaneID,
+        filePath: String,
+        focus: Bool = true
+    ) -> FilePreviewPanel? {
+        let canonical = (filePath as NSString).resolvingSymlinksInPath
+        for (existingId, panel) in panels {
+            guard let preview = panel as? FilePreviewPanel, preview.diffAgainstHead else { continue }
+            if (preview.filePath as NSString).resolvingSymlinksInPath == canonical {
+                if focus {
+                    focusPanel(existingId)
+                }
+                return preview
+            }
+        }
+
+        return newFilePreviewSurface(
+            inPane: paneId,
+            filePath: filePath,
+            focus: focus,
+            diffAgainstHead: true
+        )
+    }
+
+    @discardableResult
+    func openFileDiffSurfaces(
+        inPane paneId: PaneID,
+        filePaths: [String],
+        focus: Bool? = nil,
+        targetIndex: Int? = nil,
+        reuseExisting: Bool = false
+    ) -> [FilePreviewPanel] {
+        let shouldFocusNewTabs = focus ?? (bonsplitController.focusedPaneId == paneId)
+        var nextIndex = targetIndex
+        var openedPanels: [FilePreviewPanel] = []
+
+        for filePath in filePaths {
+            let panel: FilePreviewPanel?
+            if reuseExisting {
+                panel = openOrFocusFileDiffSurface(
+                    inPane: paneId,
+                    filePath: filePath,
+                    focus: shouldFocusNewTabs
+                )
+            } else {
+                panel = newFilePreviewSurface(
+                    inPane: paneId,
+                    filePath: filePath,
+                    focus: shouldFocusNewTabs,
+                    targetIndex: nextIndex,
+                    diffAgainstHead: true
+                )
+            }
+
+            if let panel {
+                openedPanels.append(panel)
+                if let index = nextIndex {
+                    nextIndex = index + 1
+                }
+            }
+        }
+
+        return openedPanels
+    }
+
     @discardableResult
     func openOrFocusFilePreviewSplit(
         from panelId: UUID,
@@ -11141,13 +11213,18 @@ final class Workspace: Identifiable, ObservableObject {
         inPane paneId: PaneID,
         filePath: String,
         focus: Bool? = nil,
-        targetIndex: Int? = nil
+        targetIndex: Int? = nil,
+        diffAgainstHead: Bool = false
     ) -> FilePreviewPanel? {
         let shouldFocusNewTab = focus ?? (bonsplitController.focusedPaneId == paneId)
         let previousFocusedPanelId = focusedPanelId
         let previousHostedView = focusedTerminalPanel?.hostedView
 
-        let filePreviewPanel = FilePreviewPanel(workspaceId: id, filePath: filePath)
+        let filePreviewPanel = FilePreviewPanel(
+            workspaceId: id,
+            filePath: filePath,
+            diffAgainstHead: diffAgainstHead
+        )
         panels[filePreviewPanel.id] = filePreviewPanel
         panelTitles[filePreviewPanel.id] = filePreviewPanel.displayTitle
 

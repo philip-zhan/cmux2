@@ -814,6 +814,7 @@
               "focusRightSidebar",
               "switchRightSidebarToFiles",
               "switchRightSidebarToFind",
+              "switchRightSidebarToSourceControl",
               "switchRightSidebarToSessions",
               "switchRightSidebarToFeed",
               "switchRightSidebarToDock",
