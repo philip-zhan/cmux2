@@ -11101,7 +11101,7 @@ final class Workspace: Identifiable, ObservableObject {
     ) -> FilePreviewPanel? {
         let canonical = (filePath as NSString).resolvingSymlinksInPath
         for (existingId, panel) in panels {
-            guard let preview = panel as? FilePreviewPanel else { continue }
+            guard let preview = panel as? FilePreviewPanel, !preview.diffAgainstHead else { continue }
             if (preview.filePath as NSString).resolvingSymlinksInPath == canonical {
                 if focus {
                     focusPanel(existingId)
