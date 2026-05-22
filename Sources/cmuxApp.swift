@@ -5144,6 +5144,37 @@ struct SettingsView: View {
     @AppStorage("sidebarMatchTerminalBackground") private var sidebarMatchTerminalBackground = false
     @AppStorage(RightSidebarBetaFeatureSettings.dockEnabledKey)
     private var rightSidebarDockEnabled = RightSidebarBetaFeatureSettings.defaultDockEnabled
+    @AppStorage(RightSidebarTabVisibilitySettings.filesVisibleKey)
+    private var rightSidebarFilesTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+    @AppStorage(RightSidebarTabVisibilitySettings.findVisibleKey)
+    private var rightSidebarFindTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+    @AppStorage(RightSidebarTabVisibilitySettings.sourceControlVisibleKey)
+    private var rightSidebarSourceControlTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+    @AppStorage(RightSidebarTabVisibilitySettings.sessionsVisibleKey)
+    private var rightSidebarSessionsTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+    @AppStorage(RightSidebarTabVisibilitySettings.feedVisibleKey)
+    private var rightSidebarFeedTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+
+    private var rightSidebarVisibleTabCount: Int {
+        [
+            rightSidebarFilesTabVisible,
+            rightSidebarFindTabVisible,
+            rightSidebarSourceControlTabVisible,
+            rightSidebarSessionsTabVisible,
+            rightSidebarFeedTabVisible,
+        ].filter { $0 }.count
+    }
+
+    private func rightSidebarTabVisibilityBinding(for mode: RightSidebarMode) -> Binding<Bool> {
+        switch mode {
+        case .files: return $rightSidebarFilesTabVisible
+        case .find: return $rightSidebarFindTabVisible
+        case .sourceControl: return $rightSidebarSourceControlTabVisible
+        case .sessions: return $rightSidebarSessionsTabVisible
+        case .feed: return $rightSidebarFeedTabVisible
+        case .dock: return .constant(true)
+        }
+    }
 
     @ObservedObject private var notificationStore = TerminalNotificationStore.shared
     @ObservedObject private var authManager = AuthManager.shared
@@ -6555,6 +6586,27 @@ struct SettingsView: View {
                         .disabled(sidebarHideAllDetails)
                     }
 
+                    SettingsSectionHeader(title: String(localized: "settings.section.rightSidebarTabs", defaultValue: "Right Sidebar Tabs"))
+                    SettingsCard {
+                        SettingsCardNote(String(localized: "settings.rightSidebarTabs.note", defaultValue: "Choose which tabs appear in the right sidebar's mode switcher. At least one tab must stay visible."))
+                        ForEach(RightSidebarTabVisibilitySettings.configurableModes, id: \.self) { mode in
+                            SettingsCardDivider()
+                            let binding = rightSidebarTabVisibilityBinding(for: mode)
+                            SettingsCardRow(
+                                configurationReview: .settingsOnly,
+                                mode.label,
+                                subtitle: String(localized: "settings.rightSidebarTabs.row.subtitle", defaultValue: "Show this tab in the right sidebar's mode switcher.")
+                            ) {
+                                Toggle("", isOn: binding)
+                                    .labelsHidden()
+                                    .controlSize(.small)
+                                    .disabled(binding.wrappedValue && rightSidebarVisibleTabCount <= 1)
+                                    .accessibilityIdentifier("SettingsRightSidebarTabToggle-\(mode.rawValue)")
+                                    .accessibilityLabel(mode.label)
+                            }
+                        }
+                    }
+
                     BetaFeaturesSettingsView(
                         dockEnabled: $rightSidebarDockEnabled
                     )
@@ -7503,6 +7555,11 @@ struct SettingsView: View {
         showBrowserImportHintOnBlankTabs = BrowserImportHintSettings.defaultShowOnBlankTabs
         isBrowserImportHintDismissed = BrowserImportHintSettings.defaultDismissed
         rightSidebarDockEnabled = RightSidebarBetaFeatureSettings.defaultDockEnabled
+        rightSidebarFilesTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+        rightSidebarFindTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+        rightSidebarSourceControlTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+        rightSidebarSessionsTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+        rightSidebarFeedTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
         openTerminalLinksInCmuxBrowser = BrowserLinkOpenSettings.defaultOpenTerminalLinksInCmuxBrowser
         interceptTerminalOpenCommandInCmuxBrowser = BrowserLinkOpenSettings.defaultInterceptTerminalOpenCommandInCmuxBrowser
         browserHostWhitelist = BrowserLinkOpenSettings.defaultBrowserHostWhitelist

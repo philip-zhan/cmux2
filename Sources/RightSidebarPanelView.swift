@@ -62,16 +62,20 @@ extension RightSidebarMode {
 extension RightSidebarMode {
     static func modeShortcut(for event: NSEvent) -> RightSidebarMode? {
         guard event.type == .keyDown else { return nil }
-        if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToFiles).matches(event: event) {
+        if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToFiles).matches(event: event),
+           RightSidebarMode.files.isAvailable() {
             return .files
         }
-        if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToFind).matches(event: event) {
+        if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToFind).matches(event: event),
+           RightSidebarMode.find.isAvailable() {
             return .find
         }
-        if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToSourceControl).matches(event: event) {
+        if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToSourceControl).matches(event: event),
+           RightSidebarMode.sourceControl.isAvailable() {
             return .sourceControl
         }
-        if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToSessions).matches(event: event) {
+        if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToSessions).matches(event: event),
+           RightSidebarMode.sessions.isAvailable() {
             return .sessions
         }
         if KeyboardShortcutSettings.shortcut(for: .switchRightSidebarToFeed).matches(event: event),
@@ -181,6 +185,16 @@ struct RightSidebarPanelView: View {
     private let focusShortcutHintYOffset = ShortcutHintDebugSettings.defaultRightSidebarFocusHintY
     @AppStorage(RightSidebarBetaFeatureSettings.dockEnabledKey)
     private var dockEnabled = RightSidebarBetaFeatureSettings.defaultDockEnabled
+    @AppStorage(RightSidebarTabVisibilitySettings.filesVisibleKey)
+    private var filesTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+    @AppStorage(RightSidebarTabVisibilitySettings.findVisibleKey)
+    private var findTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+    @AppStorage(RightSidebarTabVisibilitySettings.sourceControlVisibleKey)
+    private var sourceControlTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+    @AppStorage(RightSidebarTabVisibilitySettings.sessionsVisibleKey)
+    private var sessionsTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
+    @AppStorage(RightSidebarTabVisibilitySettings.feedVisibleKey)
+    private var feedTabVisible = RightSidebarTabVisibilitySettings.defaultVisible
 
     // Re-reading the observable store inside modeBar causes SwiftUI to
     // track the pending count so the badge updates live when hooks push
@@ -190,7 +204,10 @@ struct RightSidebarPanelView: View {
     }
 
     private var availableModes: [RightSidebarMode] {
-        RightSidebarMode.availableModes(dockEnabled: dockEnabled)
+        // Touch the visibility AppStorage keys so SwiftUI tracks them and
+        // refreshes the mode bar when tabs are shown/hidden in Settings.
+        _ = [filesTabVisible, findTabVisible, sourceControlTabVisible, sessionsTabVisible, feedTabVisible]
+        return RightSidebarMode.availableModes(dockEnabled: dockEnabled)
     }
 
     var body: some View {
@@ -231,6 +248,7 @@ struct RightSidebarPanelView: View {
         }
         .onChange(of: fileExplorerState.isVisible) { _, visible in if !visible { dockStore.deactivate() } }
         .onChange(of: dockEnabled) { _, _ in refreshModeAvailabilityAndFocusIfNeeded() }
+        .onChange(of: availableModes) { _, _ in refreshModeAvailabilityAndFocusIfNeeded() }
     }
 
     private var modeBar: some View {
