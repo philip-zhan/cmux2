@@ -567,9 +567,14 @@ function applyLanguage(id: string | undefined) {
 // After a document is mounted we walk its whole length in idle slices, forcing
 // the syntax tree ahead of the user so any scroll target is already highlighted.
 const BG_PARSE_BUDGET_MS = 60;
+// Skip the eager full-document walk above this size. CodeMirror still parses
+// lazily around the viewport; we only drop the background pre-parse, whose
+// cumulative cost on large (usually generated/minified) files is not worth it.
+const MAX_EAGER_PARSE_BYTES = 1024 * 1024;
 let bgParseGeneration = 0;
 
 function backgroundParse(view: EditorView, generation: number) {
+  if (view.state.doc.length > MAX_EAGER_PARSE_BYTES) return;
   const idle: (cb: () => void) => void =
     typeof window.requestIdleCallback === "function"
       ? (cb) => window.requestIdleCallback(cb)

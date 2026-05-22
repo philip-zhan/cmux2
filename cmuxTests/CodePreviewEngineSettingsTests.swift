@@ -42,16 +42,4 @@ final class CodePreviewEngineSettingsTests: XCTestCase {
         XCTAssertTrue(CodePreviewEngineSettings.shouldUseCodeMirror(forPath: "/tmp/foo.py", defaults: defaults))
         XCTAssertFalse(CodePreviewEngineSettings.shouldUseCodeMirror(forPath: "/tmp/unknown.xyzqq", defaults: defaults))
     }
-
-    func testAutoEngineBailsOnHugeFiles() {
-        defaults.set(CodePreviewEngine.auto.rawValue, forKey: CodePreviewEngineSettings.engineKey)
-        let oneByteOverLimit = CodePreviewEngineSettings.maxAutoFileSizeBytes + 1
-        XCTAssertFalse(
-            CodePreviewEngineSettings.shouldUseCodeMirror(
-                forPath: "/tmp/foo.swift",
-                fileSize: oneByteOverLimit,
-                defaults: defaults
-            )
-        )
-    }
 }

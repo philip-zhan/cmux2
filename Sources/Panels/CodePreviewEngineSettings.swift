@@ -59,7 +59,6 @@ enum CodePreviewEngineSettings {
     /// it's exercised by tests so the policy is locked in.
     static func shouldUseCodeMirror(
         forPath path: String,
-        fileSize: Int? = nil,
         defaults: UserDefaults = .standard
     ) -> Bool {
         switch current(defaults: defaults) {
@@ -68,16 +67,8 @@ enum CodePreviewEngineSettings {
         case .codeMirror:
             return true
         case .auto:
-            if let fileSize, fileSize > maxAutoFileSizeBytes {
-                return false
-            }
             let lang = CodeViewerLanguageDetector.languageId(forPath: path)
             return lang != "plain"
         }
     }
-
-    /// Auto-mode bails to the native path above this size. Big-file guard
-    /// inside CodeMirror itself (Stage 2 follow-up) can ratchet this down
-    /// when we add the read-only large-file mode.
-    static let maxAutoFileSizeBytes = 5 * 1024 * 1024
 }
