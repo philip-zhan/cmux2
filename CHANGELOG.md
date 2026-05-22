@@ -2,6 +2,26 @@
 
 All notable changes to cmux are documented here.
 
+## [1.64.15] - 2026-05-22
+
+### Added
+- Make the right sidebar tabs configurable — show or hide Files, Find, Source Control, Vault, and Feed
+- Surface `.env` files in the command palette file search
+- Add browser screenshot clipboard actions
+- Add CLI window targeting
+
+### Changed
+- Open `.env` files in the editor instead of revealing them in Finder
+- Align the titlebar controls with the window traffic lights
+
+### Fixed
+- Fix a crash in Quick Look after closing a split or proxy-icon preview
+- Fix sidebar titlebar icon alignment in minimal mode
+- Fix the notification Settings open path
+- Suppress duplicate notifications from nested agent hooks
+- Fix theme overrides on channel builds
+- Refresh the command palette file index each time it opens
+
 ## [1.64.14] - 2026-05-21
 
 ### Added
