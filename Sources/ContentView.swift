@@ -5181,6 +5181,12 @@ struct ContentView: View {
         if MarkdownPanelFileLinkResolver.isMarkdownPathLike(url.path) {
             return true
         }
+        // `.env`, `.env.local`, `.env.production`, … have no registered UTType and
+        // resolve to `public.data`, which fails the text check below. They are plain
+        // text config files, so match them by name (mirrors the `.env*` index glob).
+        if url.lastPathComponent.hasPrefix(".env") {
+            return true
+        }
         guard let type = try? url.resourceValues(forKeys: [.contentTypeKey]).contentType else {
             // Unknown — treat as previewable; FilePreviewPanel decides whether to render
             // it as text/hex/etc. Wrong-guess cost is a "Can't preview" panel, which is
