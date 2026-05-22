@@ -21,18 +21,30 @@ extension RightSidebarMode {
     }
 
     static func availableModes(defaults: UserDefaults = .standard) -> [RightSidebarMode] {
-        availableModes(dockEnabled: RightSidebarBetaFeatureSettings.isDockEnabled(defaults: defaults))
+        availableModes(
+            dockEnabled: RightSidebarBetaFeatureSettings.isDockEnabled(defaults: defaults),
+            defaults: defaults
+        )
     }
 
-    static func availableModes(dockEnabled: Bool) -> [RightSidebarMode] {
-        allCases.filter { $0.isAvailable(dockEnabled: dockEnabled) }
+    static func availableModes(dockEnabled: Bool, defaults: UserDefaults = .standard) -> [RightSidebarMode] {
+        allCases.filter { $0.isAvailable(dockEnabled: dockEnabled, defaults: defaults) }
     }
 
     func isAvailable(defaults: UserDefaults = .standard) -> Bool {
-        isAvailable(dockEnabled: RightSidebarBetaFeatureSettings.isDockEnabled(defaults: defaults))
+        isAvailable(
+            dockEnabled: RightSidebarBetaFeatureSettings.isDockEnabled(defaults: defaults),
+            defaults: defaults
+        )
     }
 
-    func isAvailable(dockEnabled: Bool) -> Bool {
+    func isAvailable(dockEnabled: Bool, defaults: UserDefaults = .standard) -> Bool {
+        guard isEnabledByBetaGate(dockEnabled: dockEnabled) else { return false }
+        return RightSidebarTabVisibilitySettings.isVisible(self, defaults: defaults)
+    }
+
+    /// Whether the tab is unlocked by beta flags, ignoring user visibility.
+    private func isEnabledByBetaGate(dockEnabled: Bool) -> Bool {
         switch self {
         case .files, .find, .sourceControl, .sessions, .feed:
             return true

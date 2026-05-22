@@ -163,6 +163,41 @@ enum RightSidebarBetaFeatureSettings {
     }
 }
 
+/// Per-tab visibility for the right sidebar mode switcher. Lets the user hide
+/// tabs they don't use. Dock is gated by `RightSidebarBetaFeatureSettings`
+/// instead, so it is not part of the configurable set here.
+enum RightSidebarTabVisibilitySettings {
+    static let filesVisibleKey = "rightSidebar.tab.files.visible"
+    static let findVisibleKey = "rightSidebar.tab.find.visible"
+    static let sourceControlVisibleKey = "rightSidebar.tab.sourceControl.visible"
+    static let sessionsVisibleKey = "rightSidebar.tab.sessions.visible"
+    static let feedVisibleKey = "rightSidebar.tab.feed.visible"
+
+    static let defaultVisible = true
+
+    /// Tabs whose visibility the user can toggle, in mode-switcher order.
+    static let configurableModes: [RightSidebarMode] = [
+        .files, .find, .sourceControl, .sessions, .feed,
+    ]
+
+    nonisolated static func visibilityKey(for mode: RightSidebarMode) -> String? {
+        switch mode {
+        case .files: return filesVisibleKey
+        case .find: return findVisibleKey
+        case .sourceControl: return sourceControlVisibleKey
+        case .sessions: return sessionsVisibleKey
+        case .feed: return feedVisibleKey
+        case .dock: return nil
+        }
+    }
+
+    nonisolated static func isVisible(_ mode: RightSidebarMode, defaults: UserDefaults = .standard) -> Bool {
+        guard let key = visibilityKey(for: mode) else { return true }
+        guard defaults.object(forKey: key) != nil else { return defaultVisible }
+        return defaults.bool(forKey: key)
+    }
+}
+
 enum UITestLaunchManifest {
     static let argumentName = "-cmuxUITestLaunchManifest"
 

@@ -89,6 +89,7 @@ final class FileExplorerState: ObservableObject {
     }
 
     private static func availableMode(_ mode: RightSidebarMode, defaults: UserDefaults) -> RightSidebarMode {
-        mode.isAvailable(defaults: defaults) ? mode : .files
+        if mode.isAvailable(defaults: defaults) { return mode }
+        return RightSidebarMode.availableModes(defaults: defaults).first ?? .files
     }
 }

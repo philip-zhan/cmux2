@@ -71665,6 +71665,57 @@
         }
       }
     },
+    "settings.rightSidebarTabs.note": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose which tabs appear in the right sidebar's mode switcher. At least one tab must stay visible."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右サイドバーのモード切替に表示するタブを選択します。少なくとも 1 つのタブは表示したままにする必要があります。"
+          }
+        }
+      }
+    },
+    "settings.rightSidebarTabs.row.subtitle": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show this tab in the right sidebar's mode switcher."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このタブを右サイドバーのモード切替に表示します。"
+          }
+        }
+      }
+    },
+    "settings.section.rightSidebarTabs": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Right Sidebar Tabs"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右サイドバーのタブ"
+          }
+        }
+      }
+    },
     "settings.section.settingsJSON": {
       "extractionState": "manual",
       "localizations": {
