@@ -68,6 +68,11 @@ final class CommandPaletteFileIndexer: ObservableObject {
     /// the corpus build on huge monorepos.
     static let maxEntries = 30_000
 
+    /// Cap for the dedicated `.env*` pass. These config files are routinely
+    /// gitignored, so a second `fd` run with `--no-ignore` surfaces them. The
+    /// glob keeps the match set tiny; the cap is a defensive upper bound.
+    static let maxEnvEntries = 256
+
     private struct FdExecutable {
         let url: URL
     }
@@ -77,7 +82,7 @@ final class CommandPaletteFileIndexer: ObservableObject {
     }
 
     private var generation: UInt64 = 0
-    private var process: Process?
+    private var processes: [Process] = []
     private var readTask: Task<Void, Never>?
     private var activeRequest: Request?
     @Published private(set) var currentSnapshot: CommandPaletteFileIndexSnapshot = .empty
@@ -99,7 +104,7 @@ final class CommandPaletteFileIndexer: ObservableObject {
         }
 
         let request = Request(rootPath: trimmed)
-        if activeRequest == request, process?.isRunning == true {
+        if activeRequest == request, processes.contains(where: { $0.isRunning }) {
             return
         }
         if !forceRefresh, activeRequest == request, currentSnapshot.status == .ready {
@@ -146,20 +151,21 @@ final class CommandPaletteFileIndexer: ObservableObject {
     private func cancel(reason: CommandPaletteFileIndexSnapshot.Reason) {
         readTask?.cancel()
         readTask = nil
-        if let process, process.isRunning {
+        for process in processes where process.isRunning {
             process.terminate()
         }
-        process = nil
+        processes = []
         _ = reason
     }
 
     private func spawn(fd: FdExecutable, rootPath: String, generation buildGeneration: UInt64) {
-        let process = Process()
-        process.executableURL = fd.url
-        // `--print0` separates results with NUL so paths with newlines are safe.
-        // `--hidden` includes dotfiles but `--exclude .git` skips the VCS metadata
-        // directory, which is rarely useful in a file picker and is huge.
-        process.arguments = [
+        // Main pass: every file, honoring `.gitignore`. `--print0` separates results
+        // with NUL so paths with newlines are safe. `--hidden` includes dotfiles but
+        // `--exclude .git` skips the VCS metadata directory, which is rarely useful in
+        // a file picker and is huge.
+        let mainProcess = Process()
+        mainProcess.executableURL = fd.url
+        mainProcess.arguments = [
             "--type", "f",
             "--color", "never",
             "--hidden",
@@ -168,14 +174,40 @@ final class CommandPaletteFileIndexer: ObservableObject {
             ".",
             rootPath,
         ]
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
+        // `.env` pass: `.env*` config files (`.env`, `.env.local`, `.env.production`,
+        // …) are routinely gitignored, but users still want to open them from the
+        // palette. `--no-ignore` defeats `.gitignore`; the `--glob '.env*'` pattern
+        // keeps the match set tiny so it cannot flood the corpus. `node_modules` is
+        // excluded since stray `.env` files vendored by packages are noise.
+        let envProcess = Process()
+        envProcess.executableURL = fd.url
+        envProcess.arguments = [
+            "--type", "f",
+            "--color", "never",
+            "--hidden",
+            "--no-ignore",
+            "--exclude", ".git",
+            "--exclude", "node_modules",
+            "--glob",
+            "--print0",
+            ".env*",
+            rootPath,
+        ]
+
+        let mainStdout = Pipe()
+        let mainStderr = Pipe()
+        mainProcess.standardOutput = mainStdout
+        mainProcess.standardError = mainStderr
+        let envStdout = Pipe()
+        let envStderr = Pipe()
+        envProcess.standardOutput = envStdout
+        envProcess.standardError = envStderr
 
         do {
-            try process.run()
+            try mainProcess.run()
+            try envProcess.run()
         } catch {
+            cancel(reason: .cancelled)
             currentSnapshot = CommandPaletteFileIndexSnapshot(
                 rootPath: rootPath,
                 entries: [],
@@ -185,25 +217,40 @@ final class CommandPaletteFileIndexer: ObservableObject {
             )
             return
         }
-        self.process = process
+        self.processes = [mainProcess, envProcess]
 
-        let outputHandle = stdout.fileHandleForReading
-        let errorHandle = stderr.fileHandleForReading
         let maxEntries = Self.maxEntries
+        let maxEnvEntries = Self.maxEnvEntries
 
         readTask = Task.detached(priority: .userInitiated) { [weak self] in
-            let result = await Self.readEntries(
-                outputHandle: outputHandle,
-                errorHandle: errorHandle,
+            async let mainResultAsync = Self.readEntries(
+                outputHandle: mainStdout.fileHandleForReading,
+                errorHandle: mainStderr.fileHandleForReading,
                 rootPath: rootPath,
                 maxEntries: maxEntries
             )
-            process.waitUntilExit()
-            let exitCode = process.terminationStatus
+            async let envResultAsync = Self.readEntries(
+                outputHandle: envStdout.fileHandleForReading,
+                errorHandle: envStderr.fileHandleForReading,
+                rootPath: rootPath,
+                maxEntries: maxEnvEntries
+            )
+            let mainResult = await mainResultAsync
+            let envResult = await envResultAsync
+            mainProcess.waitUntilExit()
+            envProcess.waitUntilExit()
+            // Only the main pass gates index health; a failed `.env` pass just means
+            // no extra entries, not a broken file search.
+            let exitCode = mainProcess.terminationStatus
+            let merged = Self.merge(
+                main: mainResult.entries,
+                env: envResult.entries,
+                limit: maxEntries
+            )
             await MainActor.run {
                 guard let self else { return }
                 guard self.generation == buildGeneration else { return }
-                self.process = nil
+                self.processes = []
                 self.readTask = nil
 
                 let status: CommandPaletteFileIndexSnapshot.Status
@@ -217,13 +264,40 @@ final class CommandPaletteFileIndexer: ObservableObject {
 
                 self.currentSnapshot = CommandPaletteFileIndexSnapshot(
                     rootPath: rootPath,
-                    entries: result.entries,
+                    entries: merged.entries,
                     status: status,
-                    truncated: result.truncated,
+                    truncated: mainResult.truncated || merged.truncated,
                     generation: buildGeneration
                 )
             }
         }
+    }
+
+    /// Merge the main and `.env` passes, deduplicating by relative path. A `.env`
+    /// file that is not gitignored appears in both passes; the main-pass entry wins
+    /// so ordering stays stable.
+    nonisolated private static func merge(
+        main: [CommandPaletteFileIndexSnapshot.Entry],
+        env: [CommandPaletteFileIndexSnapshot.Entry],
+        limit: Int
+    ) -> (entries: [CommandPaletteFileIndexSnapshot.Entry], truncated: Bool) {
+        var seen = Set<String>(minimumCapacity: main.count + env.count)
+        var result: [CommandPaletteFileIndexSnapshot.Entry] = []
+        result.reserveCapacity(main.count + env.count)
+        for entry in main where seen.insert(entry.relativePath).inserted {
+            result.append(entry)
+        }
+        var truncated = false
+        for entry in env {
+            if result.count >= limit {
+                truncated = true
+                break
+            }
+            if seen.insert(entry.relativePath).inserted {
+                result.append(entry)
+            }
+        }
+        return (result, truncated)
     }
 
     private static func readEntries(

@@ -826,7 +826,7 @@ enum FilePreviewKindResolver {
 }
 
 enum FilePreviewTextLoader {
-    static let maximumLoadedTextBytes: UInt64 = 16 * 1024 * 1024
+    static let maximumLoadedTextBytes: UInt64 = 10 * 1024 * 1024
 
     enum Result: Sendable {
         case loaded(content: String, encoding: String.Encoding)
@@ -1141,11 +1141,7 @@ final class FilePreviewPanel: Panel, ObservableObject, FilePreviewTextEditingPan
     }
 
     private func evaluateTextEnginePreference() {
-        let size = (try? FileManager.default.attributesOfItem(atPath: filePath)[.size]) as? Int
-        let next = CodePreviewEngineSettings.shouldUseCodeMirror(
-            forPath: filePath,
-            fileSize: size
-        )
+        let next = CodePreviewEngineSettings.shouldUseCodeMirror(forPath: filePath)
         if usesCodeMirrorEngine != next {
             usesCodeMirrorEngine = next
         }
