@@ -4,6 +4,10 @@ import Foundation
 /// Nucleo at file-list scale because it skips the build-an-index step and runs a
 /// single linear scan over precomputed lowercased path components.
 ///
+/// Whitespace inside the query is stripped before matching, so `view port` matches
+/// `viewport.swift` the same way `viewport` does. This lets users type natural word
+/// breaks and still hit camelCase / joined-word filenames.
+///
 /// Ranking tiers (highest score wins):
 ///
 /// 1. Filename matches the query exactly.
@@ -71,7 +75,13 @@ enum CommandPaletteFilePathRanker {
     ) -> [Match] {
         guard limit > 0 else { return [] }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
+        // Strip *all* whitespace, not just leading/trailing, so a query like
+        // `view port` collapses to `viewport` and matches `Viewport.swift`. Treating
+        // spaces as separators here would be wrong: this ranker is used in a file
+        // picker where the user is typing a single identifier, not a multi-token
+        // search. Spaces are just typing convenience.
+        let needle = trimmed.lowercased().filter { !$0.isWhitespace }
+        guard !needle.isEmpty else {
             return Array(candidates.prefix(limit)).map {
                 Match(
                     id: $0.id,
@@ -82,7 +92,6 @@ enum CommandPaletteFilePathRanker {
                 )
             }
         }
-        let needle = trimmed.lowercased()
         let needleChars = Array(needle)
 
         var matches: [Match] = []

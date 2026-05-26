@@ -186,6 +186,42 @@ final class CommandPaletteFilePathRankerTests: XCTestCase {
         XCTAssertEqual(matches.first?.id, "file:src/foobar.swift")
     }
 
+    func testQueryWithInternalWhitespaceMatchesJoinedWord() {
+        let candidates = [
+            candidate("src/Viewport.swift"),
+            candidate("src/Unrelated.swift"),
+        ]
+        let matches = CommandPaletteFilePathRanker.rank(
+            query: "view port",
+            candidates: candidates,
+            limit: 10
+        )
+        XCTAssertEqual(matches.first?.id, "file:src/Viewport.swift")
+    }
+
+    func testQueryWithInternalWhitespaceMatchesAcrossSeparators() {
+        // After stripping spaces, "foo bar" should fuzzy-match `foo-bar.swift` the
+        // same way `foobar` does.
+        let candidates = [candidate("src/foo-bar.swift")]
+        let matches = CommandPaletteFilePathRanker.rank(
+            query: "foo bar",
+            candidates: candidates,
+            limit: 10
+        )
+        XCTAssertEqual(matches.first?.id, "file:src/foo-bar.swift")
+    }
+
+    func testQueryThatIsAllWhitespaceFallsBackToEmptyQueryBehavior() {
+        let candidates = (0..<5).map { candidate("dir/file-\($0).swift") }
+        let matches = CommandPaletteFilePathRanker.rank(
+            query: "   ",
+            candidates: candidates,
+            limit: 3
+        )
+        XCTAssertEqual(matches.count, 3)
+        XCTAssertEqual(matches.first?.id, "file:dir/file-0.swift")
+    }
+
     func testFuzzyNonSubsequenceQueryReturnsNothing() {
         let candidates = [candidate("src/foo-bar.swift")]
         let matches = CommandPaletteFilePathRanker.rank(
