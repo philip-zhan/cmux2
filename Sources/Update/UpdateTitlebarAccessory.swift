@@ -2345,45 +2345,57 @@ private struct NotificationPopoverRow: View {
 /// dedicated trailing-anchored titlebar accessory. Kept intentionally small —
 /// no shortcut hints, popovers, or geometry observers — so the right-anchored
 /// accessory can size itself off a static intrinsic content size.
+///
+/// Renders nothing when the right sidebar is open: the sidebar's own header
+/// close button sits in the same trailing chrome area, and leaving a hidden
+/// hosting view there can still intercept clicks targeted at the close button.
 struct RightSidebarToggleAccessoryView: View {
     let onToggleRightSidebar: () -> Void
     @AppStorage("titlebarControlsStyle") private var styleRawValue = TitlebarControlsStyle.classic.rawValue
+    @AppStorage("fileExplorer.isVisible") private var rightSidebarVisible = false
     @State private var shortcutRefreshTick = 0
     @State private var appearanceRefreshTick = 0
 
     var body: some View {
         let _ = shortcutRefreshTick
         let _ = appearanceRefreshTick
-        let style = TitlebarControlsStyle(rawValue: styleRawValue) ?? .classic
-        let config = style.config
-        let foregroundColor = Color(nsColor: titlebarControlForegroundNSColor(opacity: 1.0))
 
-        TitlebarControlButton(
-            config: config,
-            foregroundColor: foregroundColor,
-            accessibilityIdentifier: "titlebarControl.toggleRightSidebar",
-            accessibilityLabel: String(localized: "titlebar.rightSidebar.accessibilityLabel", defaultValue: "Toggle Right Sidebar"),
-            action: {
-                #if DEBUG
-                cmuxDebugLog("titlebar.toggleRightSidebar")
-                #endif
-                onToggleRightSidebar()
+        Group {
+            if rightSidebarVisible {
+                Color.clear.frame(width: 0, height: 0)
+            } else {
+                let style = TitlebarControlsStyle(rawValue: styleRawValue) ?? .classic
+                let config = style.config
+                let foregroundColor = Color(nsColor: titlebarControlForegroundNSColor(opacity: 1.0))
+
+                TitlebarControlButton(
+                    config: config,
+                    foregroundColor: foregroundColor,
+                    accessibilityIdentifier: "titlebarControl.toggleRightSidebar",
+                    accessibilityLabel: String(localized: "titlebar.rightSidebar.accessibilityLabel", defaultValue: "Toggle Right Sidebar"),
+                    action: {
+                        #if DEBUG
+                        cmuxDebugLog("titlebar.toggleRightSidebar")
+                        #endif
+                        onToggleRightSidebar()
+                    }
+                ) {
+                    Image(systemName: "sidebar.right")
+                        .symbolRenderingMode(.monochrome)
+                        .font(.system(size: config.iconSize, weight: TitlebarControlIconStyle.weight))
+                        .frame(
+                            width: TitlebarControlIconStyle.iconFrameSize(for: config),
+                            height: TitlebarControlIconStyle.iconFrameSize(for: config)
+                        )
+                }
+                .safeHelp(KeyboardShortcutSettings.Action.toggleRightSidebar.tooltip(
+                    String(localized: "titlebar.rightSidebar.tooltip", defaultValue: "Show or hide the right sidebar")
+                ))
+                .padding(.top, -1)
+                .padding(.bottom, 1)
+                .padding(.horizontal, 4)
             }
-        ) {
-            Image(systemName: "sidebar.right")
-                .symbolRenderingMode(.monochrome)
-                .font(.system(size: config.iconSize, weight: TitlebarControlIconStyle.weight))
-                .frame(
-                    width: TitlebarControlIconStyle.iconFrameSize(for: config),
-                    height: TitlebarControlIconStyle.iconFrameSize(for: config)
-                )
         }
-        .safeHelp(KeyboardShortcutSettings.Action.toggleRightSidebar.tooltip(
-            String(localized: "titlebar.rightSidebar.tooltip", defaultValue: "Show or hide the right sidebar")
-        ))
-        .padding(.top, -1)
-        .padding(.bottom, 1)
-        .padding(.horizontal, 4)
         .fixedSize()
         .onReceive(NotificationCenter.default.publisher(for: KeyboardShortcutSettings.didChangeNotification)) { _ in
             shortcutRefreshTick &+= 1
@@ -2399,9 +2411,18 @@ struct RightSidebarToggleAccessoryView: View {
 
 @MainActor
 final class RightSidebarToggleAccessoryViewController: NSTitlebarAccessoryViewController {
+    /// UserDefaults key mirrored from `FileExplorerState.isVisible`. When the
+    /// right sidebar is open the sidebar's own header close button takes over,
+    /// so we hide this accessory to avoid stacking two right-sidebar controls.
+    private static let rightSidebarVisibilityDefaultsKey = "fileExplorer.isVisible"
+
     private let hostingView: NonDraggableHostingView<RightSidebarToggleAccessoryView>
     private let containerView: NSView
     private var showsWorkspaceTitlebar: Bool { !WorkspacePresentationModeSettings.isMinimal() }
+    private var rightSidebarIsOpen: Bool {
+        UserDefaults.standard.bool(forKey: Self.rightSidebarVisibilityDefaultsKey)
+    }
+    private var shouldShow: Bool { showsWorkspaceTitlebar && !rightSidebarIsOpen }
     private var userDefaultsObserver: NSObjectProtocol?
 
     init() {
@@ -2460,8 +2481,12 @@ final class RightSidebarToggleAccessoryViewController: NSTitlebarAccessoryViewCo
     }
 
     private func applyPreferredSize() {
-        guard showsWorkspaceTitlebar else {
+        guard shouldShow else {
+            // Collapse the slot entirely so AppKit reclaims the trailing space
+            // and stops routing clicks through the (now empty) hosting view.
             preferredContentSize = .zero
+            containerView.setFrameSize(.zero)
+            hostingView.frame = .zero
             return
         }
         let fitting = hostingView.fittingSize
@@ -2474,10 +2499,15 @@ final class RightSidebarToggleAccessoryViewController: NSTitlebarAccessoryViewCo
     }
 
     private func applyWorkspaceTitlebarVisibility() {
-        let shouldShow = showsWorkspaceTitlebar
-        isHidden = !shouldShow
-        view.isHidden = !shouldShow
-        view.alphaValue = shouldShow ? 1 : 0
+        // Only hide the accessory entirely when the workspace titlebar itself
+        // is gone (minimal mode). When the right sidebar is open we leave the
+        // accessory installed but collapse it to zero size in
+        // `applyPreferredSize` so AppKit doesn't reserve a clickable slot
+        // overlapping the sidebar's own close button.
+        let titlebarVisible = showsWorkspaceTitlebar
+        isHidden = !titlebarVisible
+        view.isHidden = !titlebarVisible
+        view.alphaValue = titlebarVisible ? 1 : 0
     }
 }
 
