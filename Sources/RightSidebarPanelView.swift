@@ -295,7 +295,10 @@ struct RightSidebarPanelView: View {
                 closeButton
             }
         }
-        .rightSidebarChromeBar(leadingPadding: 4, trailingPadding: 6, height: titlebarHeight)
+        // Trailing inset needs to clear the window's rounded corner curve
+        // (macOS 26 ramps the radius up; mirror the leading traffic-light
+        // inset so the close button never lands inside the curve).
+        .rightSidebarChromeBar(leadingPadding: 4, trailingPadding: 16, height: titlebarHeight)
         .overlay(alignment: .topLeading) {
             focusShortcutHintOverlay
         }
