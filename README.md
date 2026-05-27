@@ -1,5 +1,6 @@
 <h1 align="center">cmux2</h1>
 <p align="center">A Ghostty-based macOS terminal with vertical tabs and notifications for AI coding agents</p>
+<p align="center"><em>This fork: cmux with a built-in editor and git diff</em></p>
 
 <p align="center">
   <a href="https://github.com/philip-zhan/cmux2/releases/latest/download/cmux-macos.dmg">
