@@ -2350,7 +2350,8 @@ struct ContentView: View {
                     NSSound.beep()
                 }
             },
-            visibilityMode: .alwaysVisible
+            visibilityMode: .alwaysVisible,
+            inlineRightSidebarToggle: true
         )
         .offset(y: -TitlebarControlsVisualMetrics.verticalLift)
     }

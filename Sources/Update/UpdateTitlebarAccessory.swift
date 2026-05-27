@@ -35,67 +35,67 @@ enum TitlebarControlsStyle: Int, CaseIterable, Identifiable {
         switch self {
         case .classic:
             return TitlebarControlsStyleConfig(
-                spacing: 7,
-                iconSize: 15,
-                buttonSize: 24,
-                badgeSize: 14,
-                badgeOffset: CGSize(width: 2, height: -2),
+                spacing: 6,
+                iconSize: HeaderChromeControlMetrics.iconSize,
+                buttonSize: HeaderChromeControlMetrics.buttonSize,
+                badgeSize: 12,
+                badgeOffset: CGSize(width: 3, height: -3),
                 groupBackground: false,
                 groupPadding: EdgeInsets(),
                 buttonBackground: false,
-                buttonCornerRadius: 8,
+                buttonCornerRadius: HeaderChromeControlMetrics.cornerRadius,
                 hoverBackground: false
             )
         case .compact:
             return TitlebarControlsStyleConfig(
                 spacing: 5,
-                iconSize: 13,
-                buttonSize: 20,
-                badgeSize: 12,
-                badgeOffset: CGSize(width: 1, height: -1),
-                groupBackground: false,
-                groupPadding: EdgeInsets(),
-                buttonBackground: false,
-                buttonCornerRadius: 6,
-                hoverBackground: false
-            )
-        case .roomy:
-            return TitlebarControlsStyleConfig(
-                spacing: 10,
-                iconSize: 16,
-                buttonSize: 28,
-                badgeSize: 16,
+                iconSize: 11,
+                buttonSize: 18,
+                badgeSize: 11,
                 badgeOffset: CGSize(width: 3, height: -3),
                 groupBackground: false,
                 groupPadding: EdgeInsets(),
                 buttonBackground: false,
-                buttonCornerRadius: 10,
+                buttonCornerRadius: 5,
+                hoverBackground: false
+            )
+        case .roomy:
+            return TitlebarControlsStyleConfig(
+                spacing: 7,
+                iconSize: 13,
+                buttonSize: 22,
+                badgeSize: 13,
+                badgeOffset: CGSize(width: 3, height: -3),
+                groupBackground: false,
+                groupPadding: EdgeInsets(),
+                buttonBackground: false,
+                buttonCornerRadius: 7,
                 hoverBackground: false
             )
         case .pillGroup:
             return TitlebarControlsStyleConfig(
-                spacing: 6,
-                iconSize: 14,
-                buttonSize: 24,
-                badgeSize: 14,
-                badgeOffset: CGSize(width: 2, height: -2),
+                spacing: 5,
+                iconSize: 12,
+                buttonSize: 20,
+                badgeSize: 12,
+                badgeOffset: CGSize(width: 3, height: -3),
                 groupBackground: false,
-                groupPadding: EdgeInsets(top: 1, leading: 4, bottom: 1, trailing: 4),
+                groupPadding: EdgeInsets(top: 1, leading: 3, bottom: 1, trailing: 3),
                 buttonBackground: false,
-                buttonCornerRadius: 8,
+                buttonCornerRadius: 6,
                 hoverBackground: true
             )
         case .softButtons:
             return TitlebarControlsStyleConfig(
                 spacing: 6,
-                iconSize: 15,
-                buttonSize: 26,
-                badgeSize: 14,
-                badgeOffset: CGSize(width: 2, height: -2),
+                iconSize: 12,
+                buttonSize: 21,
+                badgeSize: 12,
+                badgeOffset: CGSize(width: 3, height: -3),
                 groupBackground: false,
                 groupPadding: EdgeInsets(),
                 buttonBackground: true,
-                buttonCornerRadius: 8,
+                buttonCornerRadius: 6,
                 hoverBackground: false
             )
         }
@@ -710,6 +710,11 @@ struct TitlebarControlsView: View {
     let onFocusHistoryBack: () -> Void
     let onFocusHistoryForward: () -> Void
     let visibilityMode: TitlebarControlsVisibilityMode
+    /// When true (used by the fullscreen overlay), render the right-sidebar
+    /// toggle at the end of this row. When false (used by the standard
+    /// titlebar accessory), the toggle lives in a separate right-anchored
+    /// accessory so it sits at the trailing edge of the window chrome.
+    var inlineRightSidebarToggle: Bool = false
     @ObservedObject private var popoverVisibilityState = NotificationsPopoverVisibilityState.shared
     @AppStorage("titlebarControlsStyle") private var styleRawValue = TitlebarControlsStyle.classic.rawValue
     @State private var shortcutRefreshTick = 0
@@ -898,22 +903,6 @@ struct TitlebarControlsView: View {
             TitlebarControlButton(
                 config: config,
                 foregroundColor: foregroundColor,
-                accessibilityIdentifier: "titlebarControl.toggleRightSidebar",
-                accessibilityLabel: String(localized: "titlebar.rightSidebar.accessibilityLabel", defaultValue: "Toggle Right Sidebar"),
-                action: {
-                    #if DEBUG
-                    cmuxDebugLog("titlebar.toggleRightSidebar")
-                    #endif
-                    onToggleRightSidebar()
-                }
-            ) {
-                iconLabel(systemName: "sidebar.right", config: config)
-            }
-            .safeHelp(KeyboardShortcutSettings.Action.toggleRightSidebar.tooltip(String(localized: "titlebar.rightSidebar.tooltip", defaultValue: "Show or hide the right sidebar")))
-
-            TitlebarControlButton(
-                config: config,
-                foregroundColor: foregroundColor,
                 accessibilityIdentifier: "titlebarControl.focusHistoryBack",
                 accessibilityLabel: String(localized: "menu.history.focusBack", defaultValue: "Focus Back"),
                 action: onFocusHistoryBack,
@@ -940,6 +929,31 @@ struct TitlebarControlsView: View {
                 iconLabel(systemName: "arrow.right", config: config, iconGeometryKeyPrefix: "titlebarControl_focusHistoryForwardIcon")
             }
             .safeHelp(KeyboardShortcutSettings.Action.focusHistoryForward.tooltip(String(localized: "menu.history.focusForward", defaultValue: "Focus Forward")))
+
+            // In standard (non-fullscreen) mode, toggleRightSidebar lives in a
+            // separate right-anchored titlebar accessory so it sits at the
+            // trailing edge of the window chrome. Fullscreen hides
+            // NSTitlebarAccessory views, so callers opt in to the inline
+            // button via `inlineRightSidebarToggle`.
+            if inlineRightSidebarToggle {
+                TitlebarControlButton(
+                    config: config,
+                    foregroundColor: foregroundColor,
+                    accessibilityIdentifier: "titlebarControl.toggleRightSidebar",
+                    accessibilityLabel: String(localized: "titlebar.rightSidebar.accessibilityLabel", defaultValue: "Toggle Right Sidebar"),
+                    action: {
+                        #if DEBUG
+                        cmuxDebugLog("titlebar.toggleRightSidebar")
+                        #endif
+                        onToggleRightSidebar()
+                    }
+                ) {
+                    iconLabel(systemName: "sidebar.right", config: config)
+                }
+                .safeHelp(KeyboardShortcutSettings.Action.toggleRightSidebar.tooltip(
+                    String(localized: "titlebar.rightSidebar.tooltip", defaultValue: "Show or hide the right sidebar")
+                ))
+            }
 
         }
 
@@ -2327,6 +2341,146 @@ private struct NotificationPopoverRow: View {
     }
 }
 
+/// Single-button SwiftUI view that hosts the right-sidebar toggle in a
+/// dedicated trailing-anchored titlebar accessory. Kept intentionally small —
+/// no shortcut hints, popovers, or geometry observers — so the right-anchored
+/// accessory can size itself off a static intrinsic content size.
+struct RightSidebarToggleAccessoryView: View {
+    let onToggleRightSidebar: () -> Void
+    @AppStorage("titlebarControlsStyle") private var styleRawValue = TitlebarControlsStyle.classic.rawValue
+    @State private var shortcutRefreshTick = 0
+    @State private var appearanceRefreshTick = 0
+
+    var body: some View {
+        let _ = shortcutRefreshTick
+        let _ = appearanceRefreshTick
+        let style = TitlebarControlsStyle(rawValue: styleRawValue) ?? .classic
+        let config = style.config
+        let foregroundColor = Color(nsColor: titlebarControlForegroundNSColor(opacity: 1.0))
+
+        TitlebarControlButton(
+            config: config,
+            foregroundColor: foregroundColor,
+            accessibilityIdentifier: "titlebarControl.toggleRightSidebar",
+            accessibilityLabel: String(localized: "titlebar.rightSidebar.accessibilityLabel", defaultValue: "Toggle Right Sidebar"),
+            action: {
+                #if DEBUG
+                cmuxDebugLog("titlebar.toggleRightSidebar")
+                #endif
+                onToggleRightSidebar()
+            }
+        ) {
+            Image(systemName: "sidebar.right")
+                .symbolRenderingMode(.monochrome)
+                .font(.system(size: config.iconSize, weight: TitlebarControlIconStyle.weight))
+                .frame(
+                    width: TitlebarControlIconStyle.iconFrameSize(for: config),
+                    height: TitlebarControlIconStyle.iconFrameSize(for: config)
+                )
+        }
+        .safeHelp(KeyboardShortcutSettings.Action.toggleRightSidebar.tooltip(
+            String(localized: "titlebar.rightSidebar.tooltip", defaultValue: "Show or hide the right sidebar")
+        ))
+        .padding(.top, -1)
+        .padding(.bottom, 1)
+        .padding(.horizontal, 4)
+        .fixedSize()
+        .onReceive(NotificationCenter.default.publisher(for: KeyboardShortcutSettings.didChangeNotification)) { _ in
+            shortcutRefreshTick &+= 1
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .ghosttyConfigDidReload)) { _ in
+            appearanceRefreshTick &+= 1
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .ghosttyDefaultBackgroundDidChange)) { _ in
+            appearanceRefreshTick &+= 1
+        }
+    }
+}
+
+@MainActor
+final class RightSidebarToggleAccessoryViewController: NSTitlebarAccessoryViewController {
+    private let hostingView: NonDraggableHostingView<RightSidebarToggleAccessoryView>
+    private let containerView: NSView
+    private var showsWorkspaceTitlebar: Bool { !WorkspacePresentationModeSettings.isMinimal() }
+    private var userDefaultsObserver: NSObjectProtocol?
+
+    init() {
+        let containerView = NSView()
+        self.containerView = containerView
+        let toggle = { [weak containerView] in
+            _ = AppDelegate.shared?.toggleRightSidebarInActiveMainWindow(preferredWindow: containerView?.window)
+        }
+        hostingView = NonDraggableHostingView(
+            rootView: RightSidebarToggleAccessoryView(onToggleRightSidebar: toggle)
+        )
+
+        super.init(nibName: nil, bundle: nil)
+
+        view = containerView
+        containerView.translatesAutoresizingMaskIntoConstraints = true
+        containerView.wantsLayer = true
+        containerView.layer?.masksToBounds = false
+        hostingView.translatesAutoresizingMaskIntoConstraints = true
+        hostingView.autoresizingMask = []
+        containerView.addSubview(hostingView)
+
+        userDefaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.applyWorkspaceTitlebarVisibility()
+                self?.applyPreferredSize()
+            }
+        }
+
+        applyWorkspaceTitlebarVisibility()
+        applyPreferredSize()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    deinit {
+        if let userDefaultsObserver {
+            NotificationCenter.default.removeObserver(userDefaultsObserver)
+        }
+    }
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        applyPreferredSize()
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        applyPreferredSize()
+    }
+
+    private func applyPreferredSize() {
+        guard showsWorkspaceTitlebar else {
+            preferredContentSize = .zero
+            return
+        }
+        let fitting = hostingView.fittingSize
+        let height = max(fitting.height, WindowChromeMetrics.appTitlebarHeight)
+        let width = max(fitting.width, HeaderChromeControlMetrics.buttonSize + 8)
+        let size = NSSize(width: ceil(width), height: ceil(height))
+        preferredContentSize = size
+        containerView.setFrameSize(size)
+        hostingView.frame = NSRect(origin: .zero, size: size)
+    }
+
+    private func applyWorkspaceTitlebarVisibility() {
+        let shouldShow = showsWorkspaceTitlebar
+        isHidden = !shouldShow
+        view.isHidden = !shouldShow
+        view.alphaValue = shouldShow ? 1 : 0
+    }
+}
+
 @MainActor
 final class UpdateTitlebarAccessoryController {
     private weak var updateViewModel: UpdateViewModel?
@@ -2336,6 +2490,7 @@ final class UpdateTitlebarAccessoryController {
     private var pendingAttachRetries: [ObjectIdentifier: Int] = [:]
     private var startupScanWorkItems: [DispatchWorkItem] = []
     private let controlsIdentifier = NSUserInterfaceItemIdentifier("cmux.titlebarControls")
+    private let rightSidebarToggleIdentifier = NSUserInterfaceItemIdentifier("cmux.titlebarRightSidebarToggle")
     private let controlsControllers = NSHashTable<TitlebarControlsAccessoryViewController>.weakObjects()
     private var lastKnownPresentationMode: WorkspacePresentationModeSettings.Mode = WorkspacePresentationModeSettings.mode()
     private var detachedNotificationsPopover: NSPopover?
@@ -2495,6 +2650,13 @@ final class UpdateTitlebarAccessoryController {
             controlsControllers.add(controls)
         }
 
+        if !window.titlebarAccessoryViewControllers.contains(where: { $0.view.identifier == rightSidebarToggleIdentifier }) {
+            let rightToggle = RightSidebarToggleAccessoryViewController()
+            rightToggle.layoutAttribute = .right
+            rightToggle.view.identifier = rightSidebarToggleIdentifier
+            window.addTitlebarAccessoryViewController(rightToggle)
+        }
+
         attachedWindows.add(window)
         applyAccessoryVisibility(for: window)
 
@@ -2516,7 +2678,8 @@ final class UpdateTitlebarAccessoryController {
         let shouldHide = WorkspacePresentationModeSettings.mode() == .minimal
             || window.styleMask.contains(.fullScreen)
         for accessory in window.titlebarAccessoryViewControllers
-            where accessory.view.identifier == controlsIdentifier {
+            where accessory.view.identifier == controlsIdentifier
+                || accessory.view.identifier == rightSidebarToggleIdentifier {
             accessory.isHidden = shouldHide
             accessory.view.isHidden = shouldHide
             accessory.view.alphaValue = shouldHide ? 0 : 1
@@ -2531,7 +2694,7 @@ final class UpdateTitlebarAccessoryController {
         }
         let matchingIndices = window.titlebarAccessoryViewControllers.indices.reversed().filter { index in
             let id = window.titlebarAccessoryViewControllers[index].view.identifier
-            return id == controlsIdentifier
+            return id == controlsIdentifier || id == rightSidebarToggleIdentifier
         }
         guard !matchingIndices.isEmpty || attachedWindows.contains(window) else { return }
 
