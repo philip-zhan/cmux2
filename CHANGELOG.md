@@ -2,6 +2,41 @@
 
 All notable changes to cmux are documented here.
 
+## [1.64.16] - 2026-05-27
+
+### Added
+- Agent hibernation for backgrounded agents
+- Searchable recently closed history pane and workspace/window focus history
+- Terminal textbox input for typing directly into focused panes
+- "Copy on select" setting for the terminal
+- Viewport-aware workspace path display in the sidebar
+- Ghostty settings command palette action
+- Forward `Cmd+Up` / `Cmd+Down` to the browser pane
+
+### Changed
+- Match upstream titlebar sizing and move the right-sidebar toggle to the chrome edge
+- Move the browser loading spinner onto Core Animation for smoother rendering
+- Lazy workspace sidebar with `@Observable` drag state for better scroll performance
+- Skip the quit-confirm dialog on DEV builds; honor `app.confirmQuit` on stable/nightly
+
+### Fixed
+- Strip whitespace from the quick file picker query
+- Hide the right-sidebar titlebar toggle while the sidebar is open and clear the rounded corner
+- Fix key-repeat rendering lag in the terminal
+- Fix asymmetric equalize splits and `cmux.json` split ratios
+- Fix the browser URL bar stealing focus on tab switch
+- Fix close shortcuts targeting the original window
+- Recognize Eternal Terminal for remote file drops
+- Fix Vault resume for non-ASCII paths
+- Fix markdown files with trailing punctuation being detected as URLs
+- Fix markdown remote SVG image loading
+- Fix Ghostty split theme appearance resolution
+- Fix hidden Settings CPU usage during Codex output
+- Keep Codex notifications after interrupted turns
+- Fix restored panel unread sidebar badges
+- Fix the `runProcess` pipe teardown crash
+- Warn or hide the tab close button when appropriate
+
 ## [1.64.15] - 2026-05-22
 
 ### Added
