@@ -14,12 +14,9 @@ enum SessionSnapshotSchema {
 
 enum SessionPersistencePolicy {
     static let sidebarMinimumWidthKey = "sidebarMinimumWidth"
-    static let defaultSidebarWidth: Double = 240
-    // Fits the minimal-mode titlebar controls flush against the sidebar's
-    // trailing edge: 72pt traffic-light inset + the 4-button row (classic
-    // style). The host's transparent trailing slack is clipped, not padded.
-    static let defaultMinimumSidebarWidth: Double = 200
-    static let minimumSidebarWidth: Double = 200
+    static let defaultSidebarWidth: Double = 220
+    static let defaultMinimumSidebarWidth: Double = 216
+    static let minimumSidebarWidth: Double = 216
     static let sidebarMinimumWidthRange: ClosedRange<Double> = 120...260
     static let maximumSidebarWidth: Double = 600
     static let minimumWindowWidth: Double = 300
