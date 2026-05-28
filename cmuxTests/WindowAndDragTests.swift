@@ -1763,6 +1763,7 @@ final class WindowDragHandleHitTests: XCTestCase {
             workspaceId: nil,
             onResumeSession: nil,
             onOpenFilePreview: { _ in },
+            onOpenFileDiff: { _ in },
             onOpenAsPane: { _ in },
             onClose: {}
         )
