@@ -392,7 +392,7 @@ enum RightSidebarTabVisibilitySettings {
         case .sourceControl: return sourceControlVisibleKey
         case .sessions: return sessionsVisibleKey
         case .feed: return feedVisibleKey
-        case .dock, .history: return nil
+        case .dock: return nil
         }
     }
 
