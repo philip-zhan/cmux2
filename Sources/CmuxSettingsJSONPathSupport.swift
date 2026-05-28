@@ -20,6 +20,19 @@ enum SidebarWorkspaceDetailDefaults {
     static let showCustomMetadata = true
 }
 
+enum SidebarWorkspaceTitleWrapSettings {
+    static let key = "sidebarWrapWorkspaceTitles"
+    static let defaultWrap = false
+
+    static func wraps(defaults: UserDefaults = .standard) -> Bool {
+        SidebarWorkspaceDetailDefaults.boolValue(
+            defaults: defaults,
+            key: key,
+            defaultValue: defaultWrap
+        )
+    }
+}
+
 extension SidebarWorkspaceDetailDefaults {
     static func boolValue(defaults: UserDefaults, key: String, defaultValue: Bool) -> Bool {
         if defaults.object(forKey: key) == nil {
@@ -89,6 +102,7 @@ extension CmuxSettingsFileStore {
         "notifications.hooks",
         "notifications.hooksMode",
         "sidebar.hideAllDetails",
+        "sidebar.wrapWorkspaceTitles",
         "sidebar.showWorkspaceDescription",
         "sidebar.branchLayout",
         "sidebar.stackBranchDirectory",
@@ -127,6 +141,8 @@ extension CmuxSettingsFileStore {
         "automation.portBase",
         "automation.portRange",
         "browser.defaultSearchEngine",
+        "browser.customSearchEngineName",
+        "browser.customSearchEngineURLTemplate",
         "browser.showSearchSuggestions",
         "browser.theme",
         "browser.discardHiddenWebViews",
