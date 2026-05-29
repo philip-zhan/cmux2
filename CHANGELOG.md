@@ -2,6 +2,35 @@
 
 All notable changes to cmux are documented here.
 
+## [1.64.17] - 2026-05-28
+
+### Added
+- `cmux diff` CLI command to open a diff in the code viewer
+- "Fork Conversation" action in the tab right-click menu
+- Prompt and rules deep links
+- Configurable browser search providers
+- Open file and directory path arguments passed to the `cmux` CLI in their default app
+
+### Changed
+- Reduce browser WebView input latency
+- Open cmd-clicked Markdown paths in the Markdown viewer
+- Redesign the notifications popover: bigger, minimal, swipe to dismiss
+- Wrap long workspace titles in the sidebar
+- Launch restored agent sessions via their startup commands
+- Faster workspace sidebar and session index updates
+
+### Removed
+- Remove History from the right sidebar
+
+### Fixed
+- Fix blank Settings window on reopen
+- Fix the file preview "Open With" menu
+- Show TypeScript `.ts` files as text previews
+- Fix the matched sidebar terminal background
+- Fix agent resume when the saved working directory was deleted
+- Fix `cmux.json` JSONC comment handling for CRLF line endings
+- Fix `NSFileHandle` process pipe read crashes
+
 ## [1.64.16] - 2026-05-27
 
 ### Added
